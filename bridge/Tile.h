@@ -10,11 +10,10 @@ class Tile: public Base::Tile {
 		
 		Base::System *sba_system_ptr;
 		int node_id;
-		Bridge *bridge;
+		int service_address;
+		int rank;
 
-		Tile(Base::System *sba_s_, int n_): sba_system_ptr(sba_s_), node_id(n_){
-			bridge = new Bridge(this, sba_system_ptr, node_id);
-		};
+		Tile(Base::System *sba_s_, int n_, int s_, int r_): sba_system_ptr(sba_s_), node_id(n_), service_address(s_), rank(r_){};
 };
 
 #endif // TILE_H

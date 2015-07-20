@@ -16,7 +16,6 @@ void System::initialise_process_table(){
 void System::find_neighbours(){
 	int rows = this->process_tbl.size();
 	int cols = this->process_tbl.at(0).size();
-	int rank = this->node_id; // Subject to change
 	int row = rank/cols; // row on which the rank is located
 	int col = rank - row*cols; //column on which the rank is located 
 	
@@ -50,7 +49,7 @@ void System::find_neighbours(){
 }
 
 void System::print_neighbours(){
-	std::cout << "Neighbours of " << this->node_id << ": ";
+	std::cout << "Neighbours of " << rank << ": ";
 	for (std::vector<int>::iterator it = this->neighbours.begin(); it < this->neighbours.end(); it++){
 		std::cout << *it << " ";
 	}
@@ -72,4 +71,23 @@ void System::print_process_table(){
 
 std::vector<int> System::get_neighbours(){
 	return this->neighbours;
+}
+
+/* TEST - Send msg using round robin to select a bridge */
+void System::bcast_to_neighbours(Packet_t packet){
+	printf("Rank %d: Bridge %d(%d) was selected to send a message\n", rank, bridge_pos, bridge_list.size());
+	this->bridge_list.at(bridge_pos)->bcast_to_neighbours(packet);
+	bridge_pos = (bridge_pos+1) % bridge_list.size();
+}
+
+void System::stencil_operation(std::vector<Packet_t> packet_list){
+	printf("Rank %d: Bridge %d(%d) was selected to send a message (stencil)\n", rank, bridge_pos, bridge_list.size());
+	this->bridge_list.at(bridge_pos)->stencil(packet_list);
+	bridge_pos = (bridge_pos+1) % bridge_list.size();
+}
+
+void System::allreduce_operation(std::vector<Packet_t> packet_list){
+	printf("Rank %d: Bridge %d(%d) was selected to send a message (allreduce)\n", rank, bridge_pos, bridge_list.size());
+	this->bridge_list.at(bridge_pos)->allreduce(packet_list);
+	bridge_pos = (bridge_pos+1) % bridge_list.size();
 }

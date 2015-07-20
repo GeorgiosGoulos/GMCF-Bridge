@@ -3,13 +3,14 @@
 #include "Types.h"
 #include <string> //stoi()
 #include "mpi.h"
+#include <vector>
 
-#define SENDER 10
+#define SENDER 3
 
 int main(int argc, char *argv[]){
 
 	//MPI::Init(argc, argv);
-	int tsl = MPI::Init_thread(argc, argv, MPI::THREAD_SERIALIZED);			//Thread support level
+	int tsl = MPI::Init_thread(argc, argv, MPI::THREAD_SERIALIZED);	//Thread support level
 	
 	int rank = MPI::COMM_WORLD.Get_rank();
 	int size = MPI::COMM_WORLD.Get_size();
@@ -68,14 +69,60 @@ int main(int argc, char *argv[]){
 	if (rank == 0) sba_system.print_process_table();
 	MPI_Barrier(MPI_COMM_WORLD); //Waits for the table to be printed, not really needed otherwise
 
-	Packet_t packet;
+	/* TEST - Broadcast */
+	/*Packet_t packet;
 	if (rank == SENDER) {
 		packet.push_back(4);
 		packet.push_back(42);
 		packet.push_back(7);
+		
+		// sba_system.bcast_to_neighbours(packet);
+		// sba_system.bcast_to_neighbours(packet);
+		// sba_system.bcast_to_neighbours(packet);
+	}*/
 
-		sba_system.sba_tile_ptr->bridge->bcast_to_neighbours(packet);
+	/* TEST - Scatter */
+	/*Packet_t packet;
+	if (rank == SENDER) {
+		int num_neighbours = sba_system.get_neighbours().size();
+		std::vector<Packet_t> packet_list;
+		for (int i = 0; i < num_neighbours;i++){
+			Packet_t packet;
+			packet.push_back(i+1);
+			packet.push_back(i+2);
+			packet_list.push_back(packet);
+		}
+		sba_system.bridge->scatter_to_neighbours(packet_list);
+	}*/
+
+	/* TEST - Stencil */
+	if (rank == SENDER) {
+		int num_neighbours = sba_system.get_neighbours().size();
+		std::vector<Packet_t> packet_list;
+		for (int i = 0; i < num_neighbours - 1; i++){
+			Packet_t packet;
+			packet.push_back(i+1);
+			packet.push_back(i+2);
+			packet_list.push_back(packet);
+		}
+		sba_system.stencil_operation(packet_list);
+		printf("Non-blocking stencil computation has started\n");
 	}
+
+	/* TEST - AllReduce */
+	/*if (rank == SENDER) {
+		int num_neighbours = sba_system.get_neighbours().size();
+		std::vector<Packet_t> packet_list;
+		for (int i = 0; i < num_neighbours - 1; i++){
+			Packet_t packet;
+			packet.push_back(i+1);
+			packet.push_back(i+2);
+			packet_list.push_back(packet);
+		}
+		sba_system.allreduce_operation(packet_list);
+		printf("Non-blocking allreduce computation has started\n");
+	}*/
+
 	for (;;) {} // So that the program doesn't exit
 
 	MPI::Finalize();
