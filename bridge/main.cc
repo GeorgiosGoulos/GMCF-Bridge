@@ -5,7 +5,7 @@
 #include "mpi.h"
 #include <vector>
 
-#define SENDER 3
+#define SENDER 1
 
 int main(int argc, char *argv[]){
 
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]){
 				printf("%d: MPI::THREAD_FUNNELED\n", rank);
 				break;
 			case MPI::THREAD_SERIALIZED: // If multiple threads exist, only one will be able to make MPI library calls at a time
-				printf("MPI::THREAD_SERIALIZED\n", rank);
+				printf("%d: MPI::THREAD_SERIALIZED\n", rank);
 				break;
 			case MPI::THREAD_MULTIPLE: // No restrictions on threads and MPI library calls (WARNING: "lightly tested")
 				printf("%d: MPI::THREAD_MULTIPLE\n", rank);
@@ -63,11 +63,14 @@ int main(int argc, char *argv[]){
 
 	/* TESTING */
 
-	int source = 4;
-	int target = 1;
-
 	if (rank == 0) sba_system.print_process_table();
 	MPI_Barrier(MPI_COMM_WORLD); //Waits for the table to be printed, not really needed otherwise
+
+	if (SENDER >= size) {
+		if (rank == 0) {
+			printf("There is no node with SENDER rank\n");
+		}
+	}
 
 	/* TEST - Broadcast */
 	/*Packet_t packet;
@@ -110,6 +113,7 @@ int main(int argc, char *argv[]){
 	}
 
 	/* TEST - AllReduce */
+	
 	/*if (rank == SENDER) {
 		int num_neighbours = sba_system.get_neighbours().size();
 		std::vector<Packet_t> packet_list;

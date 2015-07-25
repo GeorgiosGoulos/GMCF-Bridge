@@ -8,7 +8,7 @@
 #include <pthread.h>
 #include "Types.h"
 
-void *wait_recv_any_th(void*);
+void *wait_recv_any_th(void*); // executed in a different thread, used to listen for receiving messages, runs indefinitely
 
 class Bridge {
 	public:
@@ -32,7 +32,7 @@ class Bridge {
 				exit(1);
 			}
 			else {
-				//printf("RANK %d: CREATED THREAD SUCCESSFULLY: CODE %d\n", rank, rc);
+				//printf("RANK %d: CREATED RECEIVING THREAD SUCCESSFULLY: CODE %d\n", rank, rc);
 			}
 		};
 		

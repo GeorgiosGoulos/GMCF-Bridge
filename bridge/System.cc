@@ -73,7 +73,6 @@ std::vector<int> System::get_neighbours(){
 	return this->neighbours;
 }
 
-/* TEST - Send msg using round robin to select a bridge */
 void System::bcast_to_neighbours(Packet_t packet){
 	printf("Rank %d: Bridge %d(%d) was selected to send a message\n", rank, bridge_pos, bridge_list.size());
 	this->bridge_list.at(bridge_pos)->bcast_to_neighbours(packet);

@@ -8,23 +8,21 @@
 #include <unordered_map>
 #include "Types.h"
 
-#define TMP_RANK 0 // debugging
-#define NSERVICES 1 // tmp
-#define NBRIDGES 1 // tmp
-
 class System: public Base::System {
 	public:
 		//Tile *sba_tile_ptr;
 		int rank;
+		int rows, cols; // dimensions of process_tbl
+		int selected_node; // ID of next node to receive a packet, used for iterating over nodes TODO: here or static in Bridge?
+		// selected_node in {0, n-1}, so ALWAYS use selected_node + 1 (in {1, n})
 		std::vector< std::vector<int> > process_tbl;
 		std::vector<int> neighbours;
-		int rows, cols; // dimensions of process_tbl
 		Bridge *bridge;
 		std::unordered_map<int,Tile*> nodes;
 		std::vector<Bridge*> bridge_list;
 		int bridge_pos = 0; // cycles from 0 to bridge_list.size()-1
 
-		System(int rank_, int r_, int c_): rank(rank_), rows(r_), cols(c_) {
+		System(int rank_, int r_, int c_): rank(rank_), rows(r_), cols(c_), selected_node(0) {
 			initialise_process_table();
 			find_neighbours();
 
@@ -50,7 +48,6 @@ class System: public Base::System {
 		void print_neighbours();
 		std::vector<int> get_neighbours();
 
-		/* TEST - Send msg using round robin to select a bridge */
 		void bcast_to_neighbours(Packet_t packet);
 		void stencil_operation(std::vector<Packet_t> packet_list);
 		void allreduce_operation(std::vector<Packet_t> packet_list);
