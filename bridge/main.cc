@@ -5,16 +5,28 @@
 #include "mpi.h"
 #include <vector>
 
-#define SENDER 1
+#define SENDER 2
 
 int main(int argc, char *argv[]){
 
-	//MPI::Init(argc, argv);
-	int tsl = MPI::Init_thread(argc, argv, MPI::THREAD_SERIALIZED);	//Thread support level
+	int tsl;
+	MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &tsl);	//Thread support level
 	
-	int rank = MPI::COMM_WORLD.Get_rank();
-	int size = MPI::COMM_WORLD.Get_size();
+	int rank, size;
 	int rows, cols;
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+MPI_Comm comm;
+
+#ifdef MPI_TOPOLOGY_OPT
+	comm = MPI_COMM_WORLD; //TODO: CREATE NEW COM THUOGH OPTIMISED TOPOLOGY
+	if (rank == 0 ) printf("Using new communicator.\n");
+#else // MPI_TOPOLOGY_OPT
+	if (rank == 0 ) printf("Using standard communicator.\n");
+	comm = MPI_COMM_WORLD;
+#endif // MPI_TOPOLOGY_OPT
 
 	if (argc < 3) {
 		if (rank == 0) {
@@ -39,25 +51,25 @@ int main(int argc, char *argv[]){
 	if (rank == 0){
 		printf("THREAD SUPPORT LEVEL: ");
 		switch (tsl){
-			case MPI::THREAD_SINGLE: // A single thread will execute
-				printf("%d: MPI::THREAD_SINGLE\n", rank);
+			case MPI_THREAD_SINGLE: // A single thread will execute
+				printf("%d: MPI_THREAD_SINGLE\n", rank);
 				break;
-			case MPI::THREAD_FUNNELED: // If multiple threads exist, only the one that called MPI_Init() will be able to make MPI calls
-				printf("%d: MPI::THREAD_FUNNELED\n", rank);
+			case MPI_THREAD_FUNNELED: // If multiple threads exist, only the one that called MPI_Init() will be able to make MPI calls
+				printf("%d: MPI_THREAD_FUNNELED\n", rank);
 				break;
-			case MPI::THREAD_SERIALIZED: // If multiple threads exist, only one will be able to make MPI library calls at a time
-				printf("%d: MPI::THREAD_SERIALIZED\n", rank);
+			case MPI_THREAD_SERIALIZED: // If multiple threads exist, only one will be able to make MPI library calls at a time
+				printf("%d: MPI_THREAD_SERIALIZED\n", rank);
 				break;
-			case MPI::THREAD_MULTIPLE: // No restrictions on threads and MPI library calls (WARNING: "lightly tested")
-				printf("%d: MPI::THREAD_MULTIPLE\n", rank);
+			case MPI_THREAD_MULTIPLE: // No restrictions on threads and MPI library calls (WARNING: "lightly tested")
+				printf("%d: MPI_THREAD_MULTIPLE\n", rank);
 				break;
 			default:
-				printf("%d: MPI::???\n", rank);
+				printf("%d: MPI_???\n", rank);
 				break;
 		}
 	}
 
-	MPI_Barrier(MPI_COMM_WORLD); //Waits for the above messages to be printed, not really needed otherwise
+	MPI_Barrier(comm); //Waits for the above messages to be printed, not really needed otherwise
 
 	System sba_system(rank, rows, cols);
 
@@ -129,5 +141,5 @@ int main(int argc, char *argv[]){
 
 	for (;;) {} // So that the program doesn't exit
 
-	MPI::Finalize();
+	MPI_Finalize();
 }

@@ -73,11 +73,11 @@ std::vector<int> System::get_neighbours(){
 	return this->neighbours;
 }
 
-void System::bcast_to_neighbours(Packet_t packet){
+/*void System::bcast_to_neighbours(Packet_t packet){
 	printf("Rank %d: Bridge %d(%d) was selected to send a message\n", rank, bridge_pos, bridge_list.size());
 	this->bridge_list.at(bridge_pos)->bcast_to_neighbours(packet);
 	bridge_pos = (bridge_pos+1) % bridge_list.size();
-}
+}*/
 
 void System::stencil_operation(std::vector<Packet_t> packet_list){
 	printf("Rank %d: Bridge %d(%d) was selected to send a message (stencil)\n", rank, bridge_pos, bridge_list.size());
@@ -89,4 +89,16 @@ void System::allreduce_operation(std::vector<Packet_t> packet_list){
 	printf("Rank %d: Bridge %d(%d) was selected to send a message (allreduce)\n", rank, bridge_pos, bridge_list.size());
 	this->bridge_list.at(bridge_pos)->allreduce(packet_list);
 	bridge_pos = (bridge_pos+1) % bridge_list.size();
+}
+
+Tile* System::get_node() { // TODO: USE IT
+	Tile* tile_ptr;
+	pthread_spin_lock(&_nodes_lock);
+	printf("Rank %d: entered lock\n", rank);
+	tile_ptr = nodes[selected_node+1]; // value ranges from 1 to NSERVICES
+	selected_node = selected_node + 1 % NSERVICES;
+	printf("Rank %d: exiting lock\n", rank);
+	pthread_spin_unlock(&_nodes_lock);
+
+	return tile_ptr;
 }

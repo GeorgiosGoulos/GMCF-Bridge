@@ -2,7 +2,7 @@
 #define TYPES_H
 
 #include <vector>
-#include "mpi.h"
+//#include "mpi.h"
 
 typedef u_int64_t Uint64;
 typedef Uint64 Word;
