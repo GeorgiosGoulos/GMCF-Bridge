@@ -5,28 +5,18 @@
 #include "mpi.h"
 #include <vector>
 
-#define SENDER 2
+#define SENDER 1
 
 int main(int argc, char *argv[]){
 
 	int tsl;
 	MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &tsl);	//Thread support level
 	
-	int rank, size;
+	int rank, new_rank, size;
 	int rows, cols;
 
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-MPI_Comm comm;
-
-#ifdef MPI_TOPOLOGY_OPT
-	comm = MPI_COMM_WORLD; //TODO: CREATE NEW COM THUOGH OPTIMISED TOPOLOGY
-	if (rank == 0 ) printf("Using new communicator.\n");
-#else // MPI_TOPOLOGY_OPT
-	if (rank == 0 ) printf("Using standard communicator.\n");
-	comm = MPI_COMM_WORLD;
-#endif // MPI_TOPOLOGY_OPT
 
 	if (argc < 3) {
 		if (rank == 0) {
@@ -45,48 +35,67 @@ MPI_Comm comm;
 		exit(0);
 	}
 
-	if (rank == 0) printf("Running with %d processes (%dx%d)\n", size, rows, cols);
+	MPI_Comm comm, *comm_ptr;
+
+#ifdef MPI_TOPOLOGY_OPT
+	//comm = MPI_COMM_WORLD; //TODO: CREATE NEW COM THUOGH OPTIMISED TOPOLOGY
+	comm = System::create_communicator(rows, cols);
+	if (rank == 0 ) printf("Using new communicator.\n");
+#else // MPI_TOPOLOGY_OPT
+	if (rank == 0 ) printf("Using standard communicator.\n");
+	comm = MPI_COMM_WORLD;
+#endif // MPI_TOPOLOGY_OPT
+
+	MPI_Comm_rank(comm, &new_rank); // TODO: Remove before deployment, keep only rank and reassign
+#ifdef MPI_TOPOLOGY_OPT
+	printf("Rank %d: new rank is %d\n", rank, new_rank);
+#endif // MPI_TOPOLOGY_OPT
+
+	comm_ptr = &comm;
+
+	if (new_rank == 0) printf("Running with %d processes (%dx%d)\n", size, rows, cols);
 
 	/* Detect thread support level */
-	if (rank == 0){
-		printf("THREAD SUPPORT LEVEL: ");
+	if (new_rank == 0){
+		printf("Rank %d: THREAD SUPPORT LEVEL: ", new_rank);
 		switch (tsl){
 			case MPI_THREAD_SINGLE: // A single thread will execute
-				printf("%d: MPI_THREAD_SINGLE\n", rank);
+				printf("MPI_THREAD_SINGLE\n");
 				break;
 			case MPI_THREAD_FUNNELED: // If multiple threads exist, only the one that called MPI_Init() will be able to make MPI calls
-				printf("%d: MPI_THREAD_FUNNELED\n", rank);
+				printf("MPI_THREAD_FUNNELED\n");
 				break;
 			case MPI_THREAD_SERIALIZED: // If multiple threads exist, only one will be able to make MPI library calls at a time
-				printf("%d: MPI_THREAD_SERIALIZED\n", rank);
+				printf("MPI_THREAD_SERIALIZED\n");
 				break;
 			case MPI_THREAD_MULTIPLE: // No restrictions on threads and MPI library calls (WARNING: "lightly tested")
-				printf("%d: MPI_THREAD_MULTIPLE\n", rank);
+				printf("MPI_THREAD_MULTIPLE\n");
 				break;
 			default:
-				printf("%d: MPI_???\n", rank);
+				printf("MPI_???\n");
 				break;
 		}
 	}
 
 	MPI_Barrier(comm); //Waits for the above messages to be printed, not really needed otherwise
 
-	System sba_system(rank, rows, cols);
+	System sba_system(new_rank, rows, cols, comm_ptr);
 
 	/* TESTING */
 
-	if (rank == 0) sba_system.print_process_table();
+	if (new_rank == 0) sba_system.print_process_table();
 	MPI_Barrier(MPI_COMM_WORLD); //Waits for the table to be printed, not really needed otherwise
 
+
 	if (SENDER >= size) {
-		if (rank == 0) {
+		if (new_rank == 0) {
 			printf("There is no node with SENDER rank\n");
 		}
 	}
 
 	/* TEST - Broadcast */
 	/*Packet_t packet;
-	if (rank == SENDER) {
+	if (new_rank == SENDER) {
 		packet.push_back(4);
 		packet.push_back(42);
 		packet.push_back(7);
@@ -98,7 +107,7 @@ MPI_Comm comm;
 
 	/* TEST - Scatter */
 	/*Packet_t packet;
-	if (rank == SENDER) {
+	if (new_rank == SENDER) {
 		int num_neighbours = sba_system.get_neighbours().size();
 		std::vector<Packet_t> packet_list;
 		for (int i = 0; i < num_neighbours;i++){
@@ -111,7 +120,7 @@ MPI_Comm comm;
 	}*/
 
 	/* TEST - Stencil */
-	if (rank == SENDER) {
+	if (new_rank == SENDER) {
 		int num_neighbours = sba_system.get_neighbours().size();
 		std::vector<Packet_t> packet_list;
 		for (int i = 0; i < num_neighbours - 1; i++){
@@ -126,7 +135,7 @@ MPI_Comm comm;
 
 	/* TEST - AllReduce */
 	
-	/*if (rank == SENDER) {
+	/*if (new_rank == SENDER) {
 		int num_neighbours = sba_system.get_neighbours().size();
 		std::vector<Packet_t> packet_list;
 		for (int i = 0; i < num_neighbours - 1; i++){

@@ -22,6 +22,9 @@ void* allreduce_operation_th(void *args);
 
 void Bridge::send(int target, const Packet_t packet, int tag) {
 
+	System& sba_system = *((System*) this->sba_system_ptr);
+	MPI_Comm *comm_ptr = sba_system.comm_ptr;
+
 	if (!(std::find(neighbours.begin(), neighbours.end(), target) != neighbours.end())){
 		printf("ERROR: Rank %d tried to send a message to a rank that's not a neighbour\n", rank);
 		return;
@@ -30,7 +33,7 @@ void Bridge::send(int target, const Packet_t packet, int tag) {
 
 	MPI_Request req;
 
-	MPI_Isend(&packet.front(), packet.size(), MPI_UINT64_T, target, tag, MPI_COMM_WORLD, &req);
+	MPI_Isend(&packet.front(), packet.size(), MPI_UINT64_T, target, tag, *comm_ptr, &req);
 	// while (!req.Test()) {} // wait for the message to be sent
 	printf("Rank %d: Sent a packet to %d (packet.at(0)=%llu)\n", rank, target, packet.at(0));
 }
@@ -45,12 +48,13 @@ void* wait_recv_any_th(void *arg){
 	MPI_Status status;
 
 	System& sba_system = *((System*)bridge->sba_system_ptr);
+	MPI_Comm *comm_ptr = sba_system.comm_ptr;
 
 	int flag;
 
 	for(;;){
 		do { // Test for a message, but don't receive
-			MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
+			MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm_ptr, &flag, &status);
 		}while (!flag);
 
 		int tag = status.MPI_TAG;
@@ -69,7 +73,7 @@ void* wait_recv_any_th(void *arg){
 
 		MPI_Request req;
 		MPI_Irecv(&packet.front(), recv_size, MPI_UINT64_T, status.MPI_SOURCE, status.MPI_TAG,
-					MPI_COMM_WORLD, &req);
+					*comm_ptr, &req);
 
 
 		// waits until the whole message is received TODO: make it so it doesn't block when 
@@ -83,7 +87,7 @@ void* wait_recv_any_th(void *arg){
 		} while (!flag);
 
 		if (counter > MAX_ITERATIONS){			
-			printf("=======Rank:%d: bridge was stuck testing a Irecv request\n", bridge->rank);
+			printf("=======Rank %d: bridge was stuck testing a Irecv request\n", bridge->rank);
 			continue; // Test for a new message (MPI_Iprobe())
 		}
 
@@ -168,6 +172,9 @@ void* stencil_operation_th(void *args){
 	MPI_Status status;
 	int flag;
 
+	System& sba_system = *((System*) bridge->sba_system_ptr);
+	MPI_Comm *comm_ptr = sba_system.comm_ptr;
+
 	for (unsigned int i = 0; i < packet_list.size() ; i++){
 		bridge->send(bridge->neighbours.at(i%bridge->neighbours.size()), packet_list.at(i), tag_stencil_scatter);
 		//printf("RANK %d: send a packet to %d (STENCIL)\n", bridge->rank, bridge->neighbours.at(i));
@@ -176,7 +183,7 @@ void* stencil_operation_th(void *args){
 	for (unsigned int i = 0; i < packet_list.size(); i++){
 		do { // waits for a msg but doesn't receive
 			MPI_Iprobe(bridge->neighbours.at(i%bridge->neighbours.size()), tag_stencil_reduce,
-			MPI_COMM_WORLD, &flag, &status);
+			*comm_ptr, &flag, &status);
 		}
 		while (!flag);
 
@@ -188,7 +195,7 @@ void* stencil_operation_th(void *args){
 
 		MPI_Request request;
 		MPI_Irecv(&packet.front(), recv_size, MPI_UINT64_T, status.MPI_SOURCE, tag_stencil_reduce,
-					MPI_COMM_WORLD, &request);
+					*comm_ptr, &request);
 
 		do { // waits until the whole message is received
 			MPI_Test(&request, &flag, &status);
@@ -239,6 +246,9 @@ void *allreduce_operation_th(void *args){
 	Bridge *bridge = parameters->bridge;
 	//printf("Rank %d: starting AllReduce operation\n", bridge->rank);
 
+	System& sba_system = *((System*) bridge->sba_system_ptr);
+	MPI_Comm *comm_ptr = sba_system.comm_ptr;
+
 	int sum=0;
 	MPI_Status status;
 	int flag;
@@ -251,7 +261,7 @@ void *allreduce_operation_th(void *args){
 	for (unsigned int i = 0; i < packet_list.size(); i++){ // TODO: Maybe change this so it receives any tag_allreduce_reduce packet regardless of its source
 		do { // waits for a msg but doesn't receive
 			MPI_Iprobe(bridge->neighbours.at(i%bridge->neighbours.size()), tag_allreduce_reduce,
-			MPI_COMM_WORLD, &flag, &status);
+			*comm_ptr, &flag, &status);
 		}
 		while (!flag);
 
@@ -263,7 +273,7 @@ void *allreduce_operation_th(void *args){
 
 		MPI_Request request;
 		MPI_Irecv(&packet.front(), recv_size, MPI_UINT64_T, status.MPI_SOURCE, tag_allreduce_reduce,
-					MPI_COMM_WORLD, &request);
+					*comm_ptr, &request);
 
 		do { // waits until the whole message is received
 			MPI_Test(&request, &flag, &status);
