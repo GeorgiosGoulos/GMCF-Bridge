@@ -109,9 +109,9 @@ void System::stencil_operation(std::vector<Packet_t> packet_list){
 	bridge_pos = (bridge_pos+1) % bridge_list.size();
 }
 
-void System::allreduce_operation(std::vector<Packet_t> packet_list){
-	printf("Rank %d: Bridge %d(%d) was selected to send a message (allreduce)\n", rank, bridge_pos, bridge_list.size());
-	this->bridge_list.at(bridge_pos)->allreduce(packet_list);
+void System::neighboursreduce_operation(std::vector<Packet_t> packet_list){
+	printf("Rank %d: Bridge %d(%d) was selected to send a message (neighboursreduce)\n", rank, bridge_pos, bridge_list.size());
+	this->bridge_list.at(bridge_pos)->neighboursreduce(packet_list);
 	bridge_pos = (bridge_pos+1) % bridge_list.size();
 }
 

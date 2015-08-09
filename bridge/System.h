@@ -19,7 +19,7 @@ class System: public Base::System {
 		std::vector< std::vector<int> > process_tbl; //TODO: move to find_neighbours after deployment
 		std::vector<int> neighbours;
 		Bridge *bridge; // not needed?
-		std::unordered_map<int,Tile*> nodes;
+		std::unordered_map<Service,Tile*> nodes;
 		std::vector<Bridge*> bridge_list;
 		int bridge_pos = 0; // cycles from 0 to bridge_list.size()-1. The instance itself changes it => no need for sync
 		MPI_Comm *comm_ptr;
@@ -33,9 +33,9 @@ class System: public Base::System {
 			find_neighbours();
 			if (rank==0) print_neighbours();
 
-			for (int node_id_=1;node_id_<=NSERVICES;node_id_++) {
-				int service_address=node_id_;
-				int node_id = node_id_;
+			for (Service node_id_=1;node_id_<=NSERVICES;node_id_++) {
+				ServiceAddress service_address=node_id_;
+				Service node_id = node_id_;
 				if  (service_address != 0) {
 					if (nodes.count(node_id) == 0) {
 						nodes[node_id]=new Tile(this, node_id, service_address, rank);
@@ -65,7 +65,7 @@ class System: public Base::System {
 
 		void bcast_to_neighbours(Packet_t packet);
 		void stencil_operation(std::vector<Packet_t> packet_list);
-		void allreduce_operation(std::vector<Packet_t> packet_list);
+		void neighboursreduce_operation(std::vector<Packet_t> packet_list);
 
 #ifdef MPI_TOPOLOGY_OPT
 		static MPI_Comm create_communicator(int rows, int cols);

@@ -1,8 +1,8 @@
-#include "Tile.h"
+#include "Transceiver.h"
 #include "Packet.h"
-#include "Types.h"
 
-void Tile::add_to_tx_fifo(Packet_t packet){ //TODO: Solve this problem that stop the execution of the program
+//TODO: Find out why it's not working when compiling this 
+void Transceiver::add_to_tx_fifo(Packet_t packet){ //TODO: Solve this problem that stop the execution of the program
 	/*
 	//TODO: remove
 	pthread_spin_lock(&_lock);
@@ -14,7 +14,7 @@ void Tile::add_to_tx_fifo(Packet_t packet){ //TODO: Solve this problem that stop
 	pthread_spin_unlock(&_lock);
 	*/
 }
-void Tile::add_to_rx_fifo(Packet_t packet){ //TODO: Solve this problem that stop the execution of the program
+void Transceiver::add_to_rx_fifo(Packet_t packet){ //TODO: Solve this problem that stop the execution of the program
 	/*
 	//TODO: Remove
 	pthread_spin_lock(&_lock);
