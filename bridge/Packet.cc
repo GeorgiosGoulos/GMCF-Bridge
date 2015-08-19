@@ -19,9 +19,48 @@ Header_t SBA::getHeader(Packet_t packet) {
 	return  header;
 }
 
+//TODO: Modify (gets the Service number from the 1st word in the header)
+To_t SBA::getTo(const Header_t& header) {
+	Word w1=header[0];
+	return (w1 & F_To) >> FS_To;
+	//printf("Default service selected \n");
+}
+
+Packet_type_t SBA::getPacket_type(const Header_t& header) {
+	Word w1=header[0];
+	return (w1 & F_Packet_type) >> FS_Packet_type;
+}
+
+To_rank_t SBA::getTo_rank(const Header_t& header) {
+	Word w1=header[0];
+	return (w1 & F_To_rank) >> FS_To_rank;
+}
+
+Return_to_t SBA::getReturn_to(const Header_t& header) {
+	Word w1=header[0];
+	return (w1 & F_Return_to) >> FS_Return_to;
+}
+
+Return_to_rank_t SBA::getReturn_to_rank(const Header_t& header) {
+	Word w1=header[0];
+	return (w1 & F_Return_to_rank) >> FS_Return_to_rank;
+}
+
 //TODO: Delete or Modify (already exists)
 Length_t SBA::getLength(Header_t header){
-	return (Length_t) header.at(1); // 2nd word in Header contains the length
+	//return (Length_t) header.at(1); // 2nd word in Header contains the length
+	Word w1=header[0];
+	return (w1 & F_Length) >> FS_Length;
+}
+
+Ctrl_t SBA::getCtrl(Header_t& header) { //wprio in mkHeader()
+	Word w1=header[0];
+	return (w1 & F_Ctrl) >> FS_Ctrl;
+}
+
+Redir_t SBA::getRedir(Header_t& header) {
+	Word w1=header[0];
+	return (w1 & F_Redir) >> FS_Redir;
 }
 
 //TODO: Delete (already exists)
@@ -35,7 +74,26 @@ Header_t SBA::mkHeader(Word packet_type, Word length, Word return_as) { //return
 	wl.push_back(packet_type);
 	wl.push_back(length);
 	wl.push_back(return_as);
-return wl;
+	return wl;
+}
+
+Header_t SBA::mkHeader(Word packet_type,Word prio,Word redir,Word length,Word to,Word return_to,Word ack_to,Word return_as) {
+	Word wpacket_type=(packet_type << FS_Packet_type) & F_Packet_type;
+	Word wprio=(prio << FS_Ctrl) & F_Ctrl;
+	Word wredir=(redir << FS_Redir) & F_Redir;
+	Word wlength=(length << FS_Length) & F_Length;
+	Word wto=(to << FS_To) & F_To;
+	Word wreturn_to=(return_to << FS_Return_to) & F_Return_to;
+
+	Word wto_rank = (0 << FS_To_rank) & F_To_rank; // No need to define a target at this point, can change later with setTo_rank()
+	Word wreturn_to_rank = (0 << FS_Return_to_rank) & F_Return_to_rank;
+	//Word w1=wpacket_type+wprio+wredir+wlength+wto+wreturn_to;
+	Word w1=wpacket_type+wprio+wredir+wlength+wto+wreturn_to + wto_rank + wreturn_to_rank;
+	Header_t wl;
+	wl.push_back(w1);
+	wl.push_back(ack_to);
+	wl.push_back(return_as);
+	return wl;
 }
 
 Packet_t SBA::mkPacket(Header_t& header,Payload_t& payload) {
@@ -57,4 +115,49 @@ Packet_t SBA::mkPacket_new(Header_t& header,Word payload) {
 	}
 	packet.push_back(payload);
 	return packet;
+}
+
+
+Packet_t SBA::setHeader(Packet_t& packet,Header_t& header) {
+	Packet_t npacket;
+	for(auto iter_=header.begin();iter_!=header.end();iter_++) {
+		Word w=*iter_;
+		npacket.push_back(w);
+	}
+	Payload_t payload=getPayload(packet);
+	for(auto iter_=payload.begin();iter_!=payload.end();iter_++) {
+		Word w=*iter_;
+		npacket.push_back(w);
+	}
+	return npacket;
+}
+
+Payload_t SBA::getPayload(Packet_t packet) {
+	Payload_t pl;
+	uint i=0;
+	for(auto iter_=packet.begin();iter_!=packet.end();iter_++) {
+		Word w=*iter_;
+		if (i>=3) {pl.push_back(w);}
+			i+=1;
+	}
+	return pl;
+}
+
+
+Header_t SBA::setTo_rank(Header_t& header,Word field) {
+	Header_t  modheader;
+	Word w0=(header[0] & FN_To_rank) + (field << FS_To_rank);
+	modheader.push_back(w0);
+	modheader.push_back(header[1]);
+	modheader.push_back(header[2]);
+	return modheader;
+}
+
+Header_t SBA::setReturn_to_rank(Header_t& header,Word field) {
+	Header_t  modheader;
+	Word w0=(header[0] & FN_Return_to_rank) + (field << FS_Return_to_rank);
+	modheader.push_back(w0);
+	modheader.push_back(header[1]);
+	modheader.push_back(header[2]);
+	return modheader;
 }

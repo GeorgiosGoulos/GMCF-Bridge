@@ -4,14 +4,14 @@
 #include "mpi.h"
 #include <algorithm> //find()
 
-void System::initialise_process_table(){
-	process_tbl.resize(rows); // Each element is a row
+void System::initialise_process_table(){ // create a 2D table of the MPI processes
+	process_tbl.resize(rows); // Each element of this vector is a row
 	for (int i = 0; i < rows; i++) {
 		std::vector<int> row(cols);
 		for (int j = 0; j < cols; j++){
 			row.at(j) = rows*j + i;
 		}
-		process_tbl.at(i) = (row); // Stores rows
+		process_tbl.at(i) = row; // Stores rows
 	}
 }
 
@@ -35,7 +35,7 @@ void System::find_neighbours(){ //This method can be used for a 2D topology ONLY
 	}
 	std::sort(neighbours.begin(), neighbours.end());
 }
-#else //MPI_TOPOLOGY_OPT 
+#else // ifndef MPI_TOPOLOGY_OPT 
 void System::find_neighbours(){
 	int rows = this->process_tbl.size();
 	int cols = this->process_tbl.at(0).size();
@@ -97,38 +97,38 @@ std::vector<int> System::get_neighbours(){
 	return this->neighbours;
 }
 
-/*void System::bcast_to_neighbours(Packet_t packet){
-	printf("Rank %d: Bridge %d(%d) was selected to send a message\n", rank, bridge_pos, bridge_list.size());
-	this->bridge_list.at(bridge_pos)->bcast_to_neighbours(packet);
-	bridge_pos = (bridge_pos+1) % bridge_list.size();
-}*/
+int System::get_rank(){
+	return rank;
+}
+
+
+void System::send(Packet_t packet){
+	increment_bridge_pos();
+	printf("Rank %d: Bridge %d(0-%d) was selected to send a message \n", rank, bridge_pos, bridge_list.size()-1);
+	this->bridge_list.at(bridge_pos)->send(packet);
+}
 
 void System::stencil_operation(std::vector<Packet_t> packet_list){
-	printf("Rank %d: Bridge %d(%d) was selected to send a message (stencil)\n", rank, bridge_pos, bridge_list.size());
+	increment_bridge_pos();
+	printf("Rank %d: Bridge %d(0-%d) was selected to initiate a stencil operation\n", rank, bridge_pos, bridge_list.size()-1);
 	this->bridge_list.at(bridge_pos)->stencil(packet_list);
-	bridge_pos = (bridge_pos+1) % bridge_list.size();
 }
 
 void System::neighboursreduce_operation(std::vector<Packet_t> packet_list){
-	printf("Rank %d: Bridge %d(%d) was selected to send a message (neighboursreduce)\n", rank, bridge_pos, bridge_list.size());
+	increment_bridge_pos();
+	printf("Rank %d: Bridge %d(0-%d) was selected to initiate a neighboursreduce operation\n", rank, bridge_pos, bridge_list.size()-1);
 	this->bridge_list.at(bridge_pos)->neighboursreduce(packet_list);
-	bridge_pos = (bridge_pos+1) % bridge_list.size();
 }
 
-Tile* System::get_node() { // TODO: USE IT
-	Tile* tile_ptr;
-	pthread_spin_lock(&_nodes_lock);
-	printf("Rank %d: entered lock\n", rank);
-	tile_ptr = nodes[selected_node+1]; // value ranges from 1 to NSERVICES
-	selected_node = selected_node + 1 % NSERVICES;
-	printf("Rank %d: exiting lock\n", rank);
-	pthread_spin_unlock(&_nodes_lock);
-	return tile_ptr;
+void System::increment_bridge_pos(){ // TODO: make thread safe
+	pthread_spin_lock(&bridge_selector_lock);
+	bridge_pos = (bridge_pos+1) % bridge_list.size();
+	pthread_spin_unlock(&bridge_selector_lock);
 }
 
 #ifdef MPI_TOPOLOGY_OPT
-MPI_Comm System::create_communicator(int rows, int cols){
-	MPI_Comm comm;
+MPI_Comm* System::create_communicator(int rows, int cols){
+	MPI_Comm comm, *comm_ptr;
 
 	int ndims = 2;	// number of dimensions
 	int dim[2];
@@ -142,7 +142,18 @@ MPI_Comm System::create_communicator(int rows, int cols){
 	reorder = true;
 
 	MPI_Cart_create(MPI_COMM_WORLD, ndims, dim, period, reorder, &comm);
-	return comm;
+	comm_ptr = new MPI_Comm(comm);
+	return comm_ptr;
 }
 
 #endif // MPI_TOPOLOGY_OPT
+
+bool System::is_active(){
+	return active;
+}
+
+void System::kill_thread(){ // thread-safe way of incrementing killed_threads, called when a receiving thread is about to exit
+	pthread_spin_lock(&killed_threads_lock);
+	killed_threads++;
+	pthread_spin_unlock(&killed_threads_lock);
+}

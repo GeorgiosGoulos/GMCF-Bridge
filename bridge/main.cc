@@ -1,134 +1,47 @@
-#include <iostream>
 #include "System.h"
 #include "Types.h"
 #include <string> //stoi()
 #include "mpi.h"
 #include <vector>
 #include "ServiceConfiguration.h"
+#include "Packet.h"
 
-#define SENDER 1 // rank of sender
-#define D_SIZE 4 // size of data array
+#ifdef VERBOSE
+#include <sstream>
+#include <iostream>
+#endif //VERBOSE
 
-/*void findAndSetLength(Packet_t& packet){
-	packet.at(1) = packet.size() - getHeader(packet).size();
-}*/
+#define SENDER 0 // rank of sender
+#define D_SIZE 2 // size of data array
 
 int main(int argc, char *argv[]){
 
-	// Define thread support level
-	int tsl;
-	MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &tsl);	
-	
-	int rank, new_rank, size;
+#ifdef VERBOSE
+ stringstream ss;
+#endif // VERBOSE
+
+
 	int rows, cols;
 
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-	if (argc < 3) {
-		if (rank == 0) {
+	if (argc < 3) { // TODO: REMOVE
 			std::cerr << "Not enough arguments. Needs at least 2 (width and height)\n";
-		}
 		MPI_Finalize();
-		exit(0);
+		exit(1);
 	} 
 
-	if ((rows=std::stoi(argv[1])) * (cols=std::stoi(argv[2])) != size) {
-		if (rank==0) {
-			printf("parameters passed don't match the number of processes created\n");
-			printf("(%d * %d != %d)\n", rows, cols, size);
-		}
-		MPI_Finalize();
-		exit(0);
-	}
+	rows=std::stoi(argv[1]);
+	cols=std::stoi(argv[2]);
+
+	System sba_system(rows, cols);
 
 
-	//--------------------------------------------------------------------
-	// Create new (and potentially optimised) communicator
-	MPI_Comm comm, *comm_ptr;
-
-#ifdef MPI_TOPOLOGY_OPT
-	comm = System::create_communicator(rows, cols);
-	if (rank == 0 ) printf("Using new communicator.\n");
-#else // MPI_TOPOLOGY_OPT
-	if (rank == 0 ) printf("Using standard communicator.\n");
-	comm = MPI_COMM_WORLD;
-#endif // MPI_TOPOLOGY_OPT
-
-	MPI_Comm_rank(comm, &new_rank); // TODO: Remove before deployment, keep only rank and reassign
-#ifdef MPI_TOPOLOGY_OPT
-	printf("Rank %d: new rank is %d\n", rank, new_rank);
-#endif // MPI_TOPOLOGY_OPT
-	comm_ptr = &comm;
-
-	if (new_rank == 0) printf("Running with %d processes (%dx%d)\n", size, rows, cols);
-
-	/* Detect thread support level */
-	if (new_rank == 0){
-		printf("Rank %d: THREAD SUPPORT LEVEL: ", new_rank);
-		switch (tsl){
-			case MPI_THREAD_SINGLE: // A single thread will execute
-				printf("MPI_THREAD_SINGLE\n");
-				break;
-			case MPI_THREAD_FUNNELED: // If multiple threads exist, only the one that called MPI_Init() will be able to make MPI calls
-				printf("MPI_THREAD_FUNNELED\n");
-				break;
-			case MPI_THREAD_SERIALIZED: // If multiple threads exist, only one will be able to make MPI library calls at a time
-				printf("MPI_THREAD_SERIALIZED\n");
-				break;
-			case MPI_THREAD_MULTIPLE: // No restrictions on threads and MPI library calls (WARNING: "lightly tested")
-				printf("MPI_THREAD_MULTIPLE\n");
-				break;
-			default:
-				printf("MPI_???\n");
-				break;
-		}
-	}
-
-	MPI_Barrier(comm); //Waits for the above messages to be printed, not really needed otherwise
-
-	System sba_system(new_rank, rows, cols, comm_ptr);
-
-	
-	/* TESTING */
-	if (new_rank == 0) sba_system.print_process_table();
+#ifdef VERBOSE
+	if (sba_system.get_rank() == 0) sba_system.print_process_table();
 	MPI_Barrier(MPI_COMM_WORLD); //Waits for the table to be printed, not really needed otherwise
-
-
-	if (SENDER >= size) {
-		if (new_rank == 0) {
-			printf("There is no node with SENDER rank\n");
-		}
-	}
-
-	/* TEST - Broadcast */
-	/*Packet_t packet;
-	if (new_rank == SENDER) {
-		packet.push_back(4);
-		packet.push_back(42);
-		packet.push_back(7);
-		
-		// sba_system.bcast_to_neighbours(packet);
-		// sba_system.bcast_to_neighbours(packet);
-		// sba_system.bcast_to_neighbours(packet);
-	}*/
-
-	/* TEST - Scatter */
-	/*Packet_t packet;
-	if (new_rank == SENDER) {
-		int num_neighbours = sba_system.get_neighbours().size();
-		std::vector<Packet_t> packet_list;
-		for (int i = 0; i < num_neighbours;i++){
-			Packet_t packet;
-			packet.push_back(i+1);
-			packet.push_back(i+2);
-			packet_list.push_back(packet);
-		}
-		sba_system.bridge->scatter_to_neighbours(packet_list);
-	}*/
+#endif //VERBOSE
 
 	/* TEST - Stencil */
-	/*if (new_rank == SENDER) {
+	/*if (rank == SENDER) {
 		int num_neighbours = sba_system.get_neighbours().size();
 		std::vector<Packet_t> packet_list;
 		for (int i = 0; i < num_neighbours - 1; i++){
@@ -142,8 +55,7 @@ int main(int argc, char *argv[]){
 	}*/
 
 	/* TEST - neighboursreduce */
-	
-	if (new_rank == SENDER) {
+	/*if (rank == SENDER) {
 		int num_neighbours = sba_system.get_neighbours().size();
 		std::vector<Packet_t> packet_list;
 		for (int i = 0; i < num_neighbours - 1; i++){
@@ -179,9 +91,74 @@ int main(int argc, char *argv[]){
 		}
 		sba_system.neighboursreduce_operation(packet_list);
 		printf("Non-blocking neighboursreduce computation has started\n");
+	}*/
+
+	/* TEST - mkHeader,mkPacket, P_DRESP */
+	if (sba_system.get_rank() == SENDER) {
+
+		float *arr = new float[D_SIZE];
+		for (int i = 0; i < D_SIZE; i++){
+			*(arr + i) = 0.5 + i;
+		}
+
+		Payload_t payload;
+		payload.push_back((Word)1);
+		payload.push_back((Word)2);
+		payload.push_back((Word)arr);
+
+		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), 5, 6, 7 ,D_SIZE);
+		cout << "Packet_type: " << (int) getPacket_type(header) << endl;
+		cout << "Prio/Ctrl: " << (int) getCtrl(header) << endl;
+		cout << "Redir: " << (int) getRedir(header) << endl;
+		cout << "Length: " << (int) getLength(header) << endl;
+		cout << "To: " << (int) getTo(header) << endl;
+		cout << "To_rank: " << (int) getTo_rank(header) << endl;
+		cout << "Return_to: " << (int) getReturn_to(header) << endl;
+		cout << "Return_to_rank: " << (int) getReturn_to_rank(header) << endl;
+
+		header = setTo_rank(header, (Word)1);
+		header = setReturn_to_rank(header, (Word) SENDER);
+		cout << "To_rank: " << (int) getTo_rank(header) << endl;
+		cout << "Return_to_rank: " << (int) getReturn_to_rank(header) << endl;
+
+		Packet_t packet = mkPacket(header, payload);
+
+		sba_system.bridge_list.at(0)->send(packet);
 	}
 
-	for (;;) {} // Keep the program running indefinitely
+	/* TEST - mkHeader,mkPacket, non-P_DRESP */
+	/*if (rank == SENDER) {
 
-	MPI_Finalize();
+		float *arr = new float[D_SIZE];
+		for (int i = 0; i < D_SIZE; i++){
+			*(arr + i) = 0.5 + i;
+		}
+
+		Payload_t payload;
+		payload.push_back((Word)1);
+		payload.push_back((Word)2);
+		payload.push_back((Word)arr);
+
+		Header_t header = mkHeader(P_DREQ, 2, 3, payload.size(), 5, 6, 7 ,D_SIZE);
+		cout << "Packet_type: " << (int) getPacket_type(header) << endl;
+		cout << "Prio/Ctrl: " << (int) getCtrl(header) << endl;
+		cout << "Redir: " << (int) getRedir(header) << endl;
+		cout << "Length: " << (int) getLength(header) << endl;
+		cout << "To: " << (int) getTo(header) << endl;
+		cout << "To_rank: " << (int) getTo_rank(header) << endl;
+		cout << "Return_to: " << (int) getReturn_to(header) << endl;
+		cout << "Return_to_rank: " << (int) getReturn_to_rank(header) << endl;
+
+		header = setTo_rank(header, (Word)1);
+		header = setReturn_to_rank(header, (Word) SENDER);
+		cout << "To_rank: " << (int) getTo_rank(header) << endl;
+		cout << "Return_to_rank: " << (int) getReturn_to_rank(header) << endl;
+
+		Packet_t packet = mkPacket(header, payload);
+
+		//sba_system.bridge_list.at(0)->send(packet);
+		sba_system.send(packet);
+	}*/
+
+	//for (;;) {} // Keep the program running indefinitely
 }
