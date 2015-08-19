@@ -106,24 +106,22 @@ int main(int argc, char *argv[]){
 		payload.push_back((Word)2);
 		payload.push_back((Word)arr);
 
-		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), 5, 6, 7 ,D_SIZE);
+
+		Word to_field = 29;
+
+		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, 6, 7 ,D_SIZE);
 		cout << "Packet_type: " << (int) getPacket_type(header) << endl;
 		cout << "Prio/Ctrl: " << (int) getCtrl(header) << endl;
 		cout << "Redir: " << (int) getRedir(header) << endl;
 		cout << "Length: " << (int) getLength(header) << endl;
 		cout << "To: " << (int) getTo(header) << endl;
-		cout << "To_rank: " << (int) getTo_rank(header) << endl;
 		cout << "Return_to: " << (int) getReturn_to(header) << endl;
-		cout << "Return_to_rank: " << (int) getReturn_to_rank(header) << endl;
-
-		header = setTo_rank(header, (Word)1);
-		header = setReturn_to_rank(header, (Word) SENDER);
-		cout << "To_rank: " << (int) getTo_rank(header) << endl;
-		cout << "Return_to_rank: " << (int) getReturn_to_rank(header) << endl;
 
 		Packet_t packet = mkPacket(header, payload);
 
-		sba_system.bridge_list.at(0)->send(packet);
+		//sba_system.bridge_list.at(0)->send(packet);
+		sba_system.nodes[6]->transceiver->tx_fifo.push_back(packet);
+		sba_system.nodes[6]->transceiver->transmit_packets();
 	}
 
 	/* TEST - mkHeader,mkPacket, non-P_DRESP */
@@ -160,5 +158,5 @@ int main(int argc, char *argv[]){
 		sba_system.send(packet);
 	}*/
 
-	//for (;;) {} // Keep the program running indefinitely
+	for (;;) {} // Keep the program running indefinitely
 }

@@ -16,12 +16,8 @@ namespace SBA {
 	typedef uint16 Length_t; //16
 	typedef uint8 Ctrl_t; //2
 	typedef uint8 Redir_t; //3
-	//typedef uint16 To_t; //16 //ORIGINAL
-	//typedef uint16 Return_to_t; //16 //ORIGINAL
-	typedef uint8 To_t;
-	typedef uint8 Return_to_t; 
-	typedef uint8 To_rank_t;
-	typedef uint8 Return_to_rank_t; 
+	typedef uint16 To_t; //16 //ORIGINAL
+	typedef uint16 Return_to_t; //16 //ORIGINAL
 
 	Packet_t packet_pointer_int(Packet_t packet);
 
@@ -41,12 +37,6 @@ namespace SBA {
 	Packet_type_t getPacket_type(const Header_t&); // Existing
 	Packet_t setHeader(Packet_t&,Header_t&); // Existing
 	Payload_t getPayload(Packet_t); // Existing
-
-	Header_t setTo_rank(Header_t&,Word);
-	Header_t setReturn_to_rank(Header_t&,Word);
-
-	To_rank_t getTo_rank(const Header_t&);
-	Return_to_rank_t getReturn_to_rank(const Header_t&);
 
 
 } // namespace SBA

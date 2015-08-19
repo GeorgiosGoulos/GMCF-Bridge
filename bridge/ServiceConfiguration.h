@@ -34,12 +34,8 @@ const Word F_Packet_type=0xFF00000000000000ULL;
 const Word F_Ctrl=0x00F8000000000000ULL;
 const Word F_Redir=0x0007000000000000ULL;
 const Word F_Length=0x0000FFFF00000000ULL;
-//const Word F_To=0x00000000FFFF0000ULL; // ORIGINAL
-const Word F_To=0x0000000000FF0000ULL;
-const Word F_To_rank=0x00000000FF000000ULL;
-//const Word F_Return_to=0x00000000000FFFFULL; // ORIGINAL
-const Word F_Return_to=0x0000000000000FFULL;
-const Word F_Return_to_rank=0x00000000000FF00ULL;
+const Word F_To=0x00000000FFFF0000ULL; 
+const Word F_Return_to=0x00000000000FFFFULL; 
 const Word F_Send_to[4]={0x000000000000FFFFULL,0x00000000FFFF0000ULL,0x0000FFFF00000000ULL,0xFFFF000000000000ULL};
 
 // Reverse masks
@@ -47,12 +43,8 @@ const Word FN_Packet_type=0x00FFFFFFFFFFFFFFULL;
 const Word FN_Ctrl=0xFF07FFFFFFFFFFFFULL;
 const Word FN_Redir=0xFFF8FFFFFFFFFFFFULL;
 const Word FN_Length=0xFFFF0000FFFFFFFFULL;
-//const Word FN_To=0xFFFFFFFF0000FFFFULL; // ORIGINAL
-const Word FN_To=0xFFFFFFFFFF00FFFFULL;
-const Word FN_To_rank=0xFFFFFFFF00FFFFFFULL;
-//const Word FN_Return_to=0xFFFFFFFFFFFF0000ULL; // ORIGINAL
-const Word FN_Return_to=0xFFFFFFFFFFFFFF00ULL;
-const Word FN_Return_to_rank=0xFFFFFFFFFFFF00FFULL;
+const Word FN_To=0xFFFFFFFF0000FFFFULL; 
+const Word FN_Return_to=0xFFFFFFFFFFFF0000ULL; 
 const Word FN_Send_to[4]={0xFFFFFFFFFFFF0000ULL,0xFFFFFFFF0000FFFFULL,0xFFFF0000FFFFFFFFULL,0x0000FFFFFFFFFFFFULL};
 
 // Field width masks
@@ -60,36 +52,24 @@ const Word FW_Packet_type=0xFFULL;
 const Word FW_Ctrl=0xF8ULL;
 const Word FW_Redir=0x07ULL;
 const Word FW_Length=0xFFFFULL;
-//const Word FW_To=0xFFFFULL; // ORIGINAL
-const Word FW_To=0xFFULL;
-const Word FW_To_rank=0xFFULL;
-//const Word FW_Return_to=0xFFFFULL; // ORIGINAL
-const Word FW_Return_to=0xFFULL;
-const Word FW_Return_to_rank=0xFFULL;
+const Word FW_To=0xFFFFULL; 
+const Word FW_Return_to=0xFFFFULL;
 
 // Field width as number of bits
 const Word FB_Packet_type=8;
 const Word FB_Ctrl=5;
 const Word FB_Redir=3;
 const Word FB_Length=16;
-// const Word FB_To=16; // ORIGINAL
-const Word FB_To=8;
-const Word FB_To_rank=8;
-// const Word FB_Return_to=16;
-const Word FB_Return_to=8;
-const Word FB_Return_to_rank=8;
+const Word FB_To=16;
+const Word FB_Return_to=16;
 
 // Shifts
 const Word FS_Packet_type=56;
 const Word FS_Ctrl=51;
 const Word FS_Redir=48;
 const Word FS_Length=32;
-// const Word FS_To=16; // ORIGINAL (No change)
 const Word FS_To=16;
-const Word FS_To_rank=24;
-//const Word FS_Return_to=0; // ORIGINAL (No change)
 const Word FS_Return_to=0;
-const Word FS_Return_to_rank=8;
 const Word FS_Send_to[4]={0ULL,16ULL,32ULL,48ULL};
 
 }

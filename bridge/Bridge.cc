@@ -158,12 +158,6 @@ void Bridge::send(int target, Packet_t packet, int tag) { //TODO: Remove
 // Used for sending GPRM packets through MPI messages to other MPI processes (used for debugging purposes)
 void Bridge::send(Packet_t packet, int tag) {
 
-	Header_t header = getHeader(packet);
-
-	Header_t new_header = setReturn_to_rank(header, (Word) rank);
-
-	packet = setHeader(packet, new_header);
-
 	pthread_t thread;
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
@@ -298,7 +292,7 @@ void* wait_recv_any_th(void *arg){
 
 
 #ifdef VERBOSE
-		int from_rank = (int) getReturn_to_rank(getHeader(packet));
+		int from_rank = (int) (getReturn_to(getHeader(packet))-1) / NSERVICES;
 		printf("Rank %d: Received msg from rank %d\n", sba_system.get_rank(), from_rank);
 #endif // VERBOSE
 		Header_t header = getHeader(packet);
@@ -309,9 +303,9 @@ void* wait_recv_any_th(void *arg){
 			packet = unpackDRespPacket(packet);
 		}
 
-		Service service_id = getTo(getHeader(packet));
+		Service service_id = ((getTo(getHeader(packet)) - 1) % (sba_system.get_size()*NSERVICES))+1;
 		ServiceAddress dest = service_id;
-		dest = ((service_id-1) % NSERVICES) + 1; // Is this really needed?
+		printf ("RECV: dest is %d\n", dest);
 		sba_system.nodes[dest]->transceiver->rx_fifo.push_back(packet);
 #ifdef VERBOSE
 		printf("Rank %d (Recv): Sent packet to dest %d\n", bridge->rank, dest);
@@ -360,8 +354,11 @@ void* send_th(void *args) {
 	/* the header of the GPRM packet to be sent */
 	Header_t header = getHeader(packet);
 
+	/* Remainder of division with (Number_of_MPI_Processes * NSERVICES) in case dest is larger */
+	ServiceAddress dest = ((getTo(header)-1) % (sba_system.get_size()*NSERVICES))+1;
+
 	/* The MPI rank of the process to receive the packet */
-	int to_rank = (int) getTo_rank(header);
+	int to_rank = (int) (dest-1)/ NSERVICES;
 
 	/* If the GPRM packet is of type P_DRESP package the contents of the float array it points to along with the packet */
 	if (getPacket_type(header) == P_DRESP) {
@@ -419,7 +416,7 @@ void* stencil_operation_th(void *args){
 	for (unsigned int i = 0; i < packet_list.size() ; i++){
 		bridge->send(bridge->neighbours.at(i%bridge->neighbours.size()), packet_list.at(i), tag_stencil_scatter);
 #ifdef VERBOSE
-		printf("RANK %d: send a packet to %d (STENCIL)\n", bridge->rank, getTo_rank(getHeader(packet_list.at(i))));
+		printf("RANK %d: send a packet to ??? (STENCIL)\n", bridge->rank); // TODO:Fix
 #endif //VERBOSE
 	}
 

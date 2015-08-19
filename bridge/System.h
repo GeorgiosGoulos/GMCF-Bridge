@@ -46,12 +46,12 @@ class System: public Base::System {
 			// Initialise MPI and define thread support level
 			int tsl; // provided thread suppport level
 			MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &tsl);	
-			MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 // Create a new communicator if MPI_TOPOLOGY_OPT was defined, or MPI_COMM_WORLD otherwise
 #ifdef MPI_TOPOLOGY_OPT
 			comm_ptr = System::create_communicator(rows, cols);
-			MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+			MPI_Comm_rank(*comm_ptr, &rank);
+			MPI_Comm_size(*comm_ptr, &size);
 	#ifdef VERBOSE
 			if (rank == 0 ) {
 				cout << "Using optimised communicator (Cartesian topology)\n";
@@ -59,13 +59,16 @@ class System: public Base::System {
 	#endif // VERBOSE
 #else // MPI_TOPOLOGY_OPT
 	#ifdef VERBOSE
+			comm = MPI_COMM_WORLD;
+			comm_ptr = &comm;
+			MPI_Comm_rank(*comm_ptr, &rank);
+			MPI_Comm_size(*comm_ptr, &size);
 			if (rank == 0 ) {
 				cout << "Using standard communicator\n";
 			}
 	#endif // VERBOSE
-			comm = MPI_COMM_WORLD;
-			comm_ptr = &comm;
 #endif // MPI_TOPOLOGY_OPT
+
 
 // Print the thread suppport level for each function (MPI does not ensure it will be the same for all processes)
 #ifdef VERBOSE
@@ -94,11 +97,13 @@ class System: public Base::System {
 			initialise_process_table(); // create a 2D table of the MPI processes
 			find_neighbours(); // find the processes that surround the current MPI node in the aforementioned table
 
-			for (Service node_id_=1;node_id_<=NSERVICES;node_id_++) {
+			for (Service node_id_ = rank*NSERVICES + 1; node_id_ <= (Service) (rank+1)*NSERVICES; node_id_++) {
 				ServiceAddress service_address=node_id_;
 				Service node_id = node_id_;
 				if  (service_address != 0) {
+					
 					if (nodes.count(node_id) == 0) {
+						printf("RANK %d: ADDING NODE %d\n", rank, (int)node_id);
 						nodes[node_id]=new Tile(this, node_id, service_address, rank);
 					}
 				}
@@ -140,6 +145,10 @@ class System: public Base::System {
 	#ifdef MPI_TOPOLOGY_OPT
 			delete comm_ptr; // created on the heap only when MPI_TOPOLOGY_OPT is defined (MPI_COMM_WORLD is used otherwise)
 	#endif // MPI_TOPOLOGY_OPT
+
+	/* Allow sometime for sending/receiving processes to finish their work */
+	//for (int i = 0; i < 2000000; i++){}
+
 	MPI_Finalize();
 	#ifdef VERBOSE
 			ss.str("");
@@ -155,6 +164,9 @@ class System: public Base::System {
 		void print_neighbours();
 		std::vector<int> get_neighbours();
 		int get_rank();
+		int get_size() {
+			return size;
+		}
 
 		void send(Packet_t packet);
 		void stencil_operation(std::vector<Packet_t> packet_list);
@@ -196,6 +208,9 @@ class System: public Base::System {
 
 		/* MPI rank of current process */
 		int rank;
+
+		/* number of active MPI processes */
+		int size;
 		
 		/** 
 		 * Create a 2D table of the MPI processes, which is stored in process_tbl
