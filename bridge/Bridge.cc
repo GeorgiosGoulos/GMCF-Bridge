@@ -71,14 +71,20 @@ Packet_t packDRespPacket(Packet_t packet){
 
 	if (getPacket_type(header) != P_DRESP) return packet; // Failsafe
 
+	/* Get size of float array */
 	int data_size = getReturn_as(header); 
+
+#ifdef VERBOSE
 	cout << "packP - Data size: " << data_size << endl; //TODO: Remove
+#endif // VERBOSE
 
 	void* ptr = (void *) packet.back();
 	float *arr = (float*)ptr;
 
 	for (int i = 0; i < data_size; i++){
+#ifdef VERBOSE
 		cout << "Pack: Adding " << *(arr+i) << endl; //TODO: Remove
+#endif // VERBOSE
 		packet.push_back(float2Word(*(arr+i)));
 	}
 	return packet;
@@ -99,14 +105,15 @@ Packet_t unpackDRespPacket(Packet_t packet) {
 	Packet_t new_packet;
 	float *arr = new float[data_size];
 
-	// Copy the contents of the header and payload to a new packet
+	/* Copy the contents of the header and payload to a new packet */
 	for (vector<Word>::iterator it = packet.begin(); it < packet.begin() + getHeader(packet).size() + original_size - 1; it++){
 		new_packet.push_back(*it);
 	}
+	
+	/* Push the pointer to the float array to the back of the new packet */
 	new_packet.push_back((Word) arr);
 
 	int counter = 0;
-
 	for (vector<Word>::iterator it = packet.begin() + getHeader(packet).size() + original_size; it < packet.end(); it++){
 		cout << "Unpack: Adding " << Word2float(*it) << endl; //TODO: Remove
 		arr[counter++] = Word2float(*it);
@@ -163,11 +170,15 @@ void Bridge::send(Packet_t packet, int tag) {
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); // TODO: Perhaps detached?
 
+	/* Create a bridge_packet_tag element which will be passed to a thread as an argument */
 	struct bridge_packet_tag parameters_ = {
 		this,
 		packet,
 		tag
 	};
+
+	/* Since pthreads take only args of type void* store the struct on the free store and pass a pointer to the thread */
+	/* The free store is used so that the thread can have access to the struct */
 	struct bridge_packet_tag *parameters = new struct bridge_packet_tag(parameters_);
 
 	int rc = pthread_create(&thread, &attr, send_th, (void *) parameters);
@@ -183,6 +194,7 @@ std::vector<int> Bridge::get_neighbours(){
 	return sba_system_ptr->get_neighbours();
 }
 
+// Initiates a stencil operation
 void Bridge::stencil(std::vector<Packet_t> packet_list){
 
 #ifdef VERBOSE
@@ -192,11 +204,16 @@ void Bridge::stencil(std::vector<Packet_t> packet_list){
 	pthread_t thread;
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); // TODO: remove? detach?
+
+	/* Create a bridge_packets_parameters element which will be passed to a thread as an argument */
 	struct bridge_packets parameters_ = {
 		this,
 		packet_list
 	};
+
+	/* Since pthreads take only args of type void* store the struct on the free store and pass a pointer to the thread 
+	 * The free store is used so that the thread can have access to the struct */
 	struct bridge_packets *parameters = new struct bridge_packets(parameters_);
 	int rc = pthread_create(&thread, &attr, stencil_operation_th, (void *) parameters);
 	if (rc) {
@@ -240,23 +257,32 @@ void* wait_recv_any_th(void *arg){
 	System& sba_system = *((System*)bridge->sba_system_ptr);
 	MPI_Comm *comm_ptr = sba_system.comm_ptr;
 
+	/* Used for checking the output of MPI_Iprobe() and MPI_Test() */
 	int flag;
 
-	bool exit = false; // indicates whether the thread should be killed (System destructor was called)
+	/* indicates whether the thread should be killed (System destructor was called) */
+	bool exit = false;
 	while(sba_system.is_active()){
-		do { // Test for a message, but don't receive
+
+		/* Test for a message, but don't receive */
+		do { 
 			MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm_ptr, &flag, &status);
+
+			/* Check whether the destructor of System has been invoked */
 			if (!sba_system.is_active()){
 				exit = true;
 				break;
 			}
 		}while (!flag);
-
+		
+		/* If the destructor of System has been invoked  kill the thread */
 		if (exit){
 			break;
 		}
 
-		int tag = status.MPI_TAG;
+		/* Check the tag of the incoming message. If it's a special-purpose tag (e.g. tag_stencil_reduce) maybe some other 
+		 * should deal with this message */ 
+		int tag = status.MPI_TAG; // TODO: Remove?
 		if (tag == tag_stencil_reduce) {
 			continue; // Let the stencil_operation_th() function do this work
 		}
@@ -266,43 +292,47 @@ void* wait_recv_any_th(void *arg){
 
 		Packet_t packet;
 
-		/*find size of packet */
+		/* Find size of packet */
 		int recv_size;
 		MPI_Get_count(&status, MPI_UINT64_T, &recv_size);
 		packet.resize(recv_size);
 
+		/* Handle to request object. Used for querying the status of the reciving operation */
 		MPI_Request req;
+
 		MPI_Irecv(&packet.front(), recv_size, MPI_UINT64_T, status.MPI_SOURCE, status.MPI_TAG,
 					*comm_ptr, &req);
 
 
-		// waits until the whole message is received //TODO: Change to what WV suggested
+		/* Wait until the whole message is received */ //TODO: Change to what WV suggested
 		int counter = 0;
 		do {
+
+			/* If MPI_Test() was called MAX_ITERATIONS times and the message hasn't been received yet, another bridge probably 
+             * received it first so listen for another message */
 			if (++counter == MAX_ITERATIONS){
 					break;
 			} 
 			MPI_Test(&req, &flag, &status);
 		} while (!flag);
-
 		if (counter > MAX_ITERATIONS){			
 			printf("=======Rank %d: bridge was stuck testing a Irecv request\n", bridge->rank);
-			continue; // Test for a new message (MPI_Iprobe())
+			/* Listen for new messages (MPI_Iprobe() stage) */
+			continue; 
 		}
-
 
 #ifdef VERBOSE
 		int from_rank = (int) (getReturn_to(getHeader(packet))-1) / NSERVICES;
 		printf("Rank %d: Received msg from rank %d\n", sba_system.get_rank(), from_rank);
 #endif // VERBOSE
 		Header_t header = getHeader(packet);
+
+		/* If the received message contained a P_DRESP GMCF packet unpack its contents */
 		if (getPacket_type(header) == P_DRESP) {
-#ifdef VERBOSE
-			printf("Rank %d (Recv): P_DRESP packet was detected\n", bridge->rank);
-#endif // VERBOSE
 			packet = unpackDRespPacket(packet);
 		}
 
+		/* Calculate the service_id of the Tile instance to receive the GMCF packet */
 		Service service_id = ((getTo(getHeader(packet)) - 1) % (sba_system.get_size()*NSERVICES))+1;
 		ServiceAddress dest = service_id;
 		printf ("RECV: dest is %d\n", dest);
@@ -311,7 +341,7 @@ void* wait_recv_any_th(void *arg){
 		printf("Rank %d (Recv): Sent packet to dest %d\n", bridge->rank, dest);
 #endif // VERBOSE
 
-		if (tag == tag_stencil_scatter) { // For now just create a packet and send it back TODO: Modify this
+		/*if (tag == tag_stencil_scatter) { // For now just create a packet and send it back TODO: Modify this
 			Packet_t new_packet;
 			new_packet.push_back(7);
 			//bridge->send(status.MPI_SOURCE, new_packet, tag_stencil_reduce); // TODO: Test SOURCE
@@ -320,8 +350,10 @@ void* wait_recv_any_th(void *arg){
 			Packet_t new_packet;
 			new_packet.push_back(8);
 			//bridge->send(status.MPI_SOURCE, new_packet, tag_neighboursreduce_reduce); //TODO: Test SOURCE
-		}
+		}*/ // TODO: Delete this whole thing, used ONLY for testing stencil, neighboursreduce
 	}
+
+	/* System destructor has been called. Notify the System that this thread will be killed */
 	sba_system.kill_thread();
 #ifdef VERBOSE
 	printf(" %d: Recv thread is exiting...\n", sba_system.get_rank());
