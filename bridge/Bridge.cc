@@ -428,6 +428,7 @@ void* send_th(void *args) {
 	pthread_exit(NULL);
 }
 
+//A function that will be executed by a thread which will initiate a stencil operation
 void* stencil_operation_th(void *args){
 
 	//Timeit

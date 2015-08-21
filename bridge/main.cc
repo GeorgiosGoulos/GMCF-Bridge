@@ -14,13 +14,35 @@
 #define SENDER 0 // rank of sender
 #define D_SIZE 2 // size of data array
 
+
+/** 
+ * Test the transfer of GMCF packets of type P_DRESP to other MPI processes
+ * @param sba_system the System instance
+ */ 
+void send_packet_dresp(System& sba_system);
+
+
+/** 
+ * Test the transfer of GMCF packets of a type other than P_DRESP to other MPI processes
+ * @param sba_system the System instance
+ */ 
+void send_packet_no_dresp(System& sba_system);
+
+/** 
+ * Test the Bridge methods used for a stencil operation
+ * @param sba_system the System instance
+ */ 
+void stencil_operation(System& sba_system);
+
+//void neighboursreduce_operation(System& sba_system); // TODO: Use or Remove?
+
 int main(int argc, char *argv[]){
 
 #ifdef VERBOSE
- stringstream ss;
+	stringstream ss;
 #endif // VERBOSE
 
-
+	/* Dimensions of the logical MPI process grid */
 	int rows, cols;
 
 	if (argc < 3) { // TODO: REMOVE
@@ -36,11 +58,103 @@ int main(int argc, char *argv[]){
 
 
 #ifdef VERBOSE
+	MPI_Barrier(MPI_COMM_WORLD); //Waits for the table to be printed, not really needed otherwise
 	if (sba_system.get_rank() == 0) sba_system.print_process_table();
 	MPI_Barrier(MPI_COMM_WORLD); //Waits for the table to be printed, not really needed otherwise
 #endif //VERBOSE
 
-	/* TEST - Stencil */
+	/* TEST - neighboursreduce */
+
+
+	/* TEST - mkHeader, mkPacket, P_DRESP */
+	send_packet_dresp(sba_system);
+
+	/* TEST - mkHeader, mkPacket, no P_DRESP */	
+	send_packet_no_dresp(sba_system);
+
+	for (;;) {} // Keep the program running indefinitely
+}
+
+// Test the transfer of GMCF packets of type P_DRESP to other MPI processes
+void send_packet_dresp(System& sba_system){
+	if (sba_system.get_rank() == SENDER) {
+
+
+		/* Create a float array. the GMCF packet will have a pointer to it */
+		float *arr = new float[D_SIZE];
+		for (int i = 0; i < D_SIZE; i++){
+			*(arr + i) = 0.5 + i;
+		}
+
+
+		/* Add some Word elements to the payload */
+		Payload_t payload;
+		payload.push_back((Word)1);
+		payload.push_back((Word)2);
+		payload.push_back((Word)arr);
+
+		/* node_id of the receiving tile */
+		Word to_field = 29;
+
+		/* node_id of sending tile */
+		Word return_to_field = 6;
+
+		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
+		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, return_to_field, 7, D_SIZE);
+
+		/* Create the GMCF packet. This function is part of the original GMCF code */
+		Packet_t packet = mkPacket(header, payload);
+
+		/* Create a second GMCF packet. These functions are part of the original GMCF code */
+		header = mkHeader(P_DREQ, 2, 3, payload.size(), to_field, return_to_field, 7 ,D_SIZE);
+		Packet_t packet2 = mkPacket(header, payload);
+
+		/* Add the packets in the TX FIFO of the sending tile */
+		sba_system.nodes[return_to_field]->transceiver->tx_fifo.push_back(packet);
+		sba_system.nodes[return_to_field]->transceiver->tx_fifo.push_back(packet2);
+
+		/* Transmit the GMCF packets in the TX FIFO of the return_to_field node */
+		sba_system.nodes[return_to_field]->transceiver->transmit_packets();
+	}
+
+}
+
+// Test the transfer of GMCF packets of a type other than P_DRESP to other MPI processes
+void send_packet_no_dresp(System& sba_system){
+	if (sba_system.get_rank() == SENDER) {
+
+		/* Add some Word elements to the payload */
+		Payload_t payload;
+		payload.push_back((Word)1);
+		payload.push_back((Word)2);
+		payload.push_back((Word)0);
+
+		/* node_id of the receiving tile */
+		Word to_field = 29;
+		
+		/* node_id of sending tile */
+		Word return_to_field = 6;
+
+		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
+		Header_t header = mkHeader(P_DREQ, 2, 3, payload.size(), to_field, return_to_field, 7 ,D_SIZE);
+
+		/* Create the GMCF packet. This function is part of the original GMCF code */
+		Packet_t packet = mkPacket(header, payload);
+
+		/* Create a second GMCF packet. These functions are part of the original GMCF code */
+		header = mkHeader(P_DREQ, 2, 3, payload.size(), to_field, return_to_field, 7 ,D_SIZE);
+		Packet_t packet2 = mkPacket(header, payload);
+
+		/* Add the packets in the TX FIFO of the sending tile */
+		sba_system.nodes[return_to_field]->transceiver->tx_fifo.push_back(packet);
+		sba_system.nodes[return_to_field]->transceiver->tx_fifo.push_back(packet2);
+
+		/* Transmit the GMCF packets in the TX FIFO of the return_to_field node */
+		sba_system.nodes[return_to_field]->transceiver->transmit_packets();
+	}
+}
+
+void stencil_operation(System& sba_system) {
 	/*if (rank == SENDER) {
 		int num_neighbours = sba_system.get_neighbours().size();
 		std::vector<Packet_t> packet_list;
@@ -53,8 +167,9 @@ int main(int argc, char *argv[]){
 		sba_system.stencil_operation(packet_list);
 		printf("Non-blocking stencil computation has started\n");
 	}*/
+}
 
-	/* TEST - neighboursreduce */
+void neighboursreduce_operation(System& sba_system) {
 	/*if (rank == SENDER) {
 		int num_neighbours = sba_system.get_neighbours().size();
 		std::vector<Packet_t> packet_list;
@@ -92,75 +207,4 @@ int main(int argc, char *argv[]){
 		sba_system.neighboursreduce_operation(packet_list);
 		printf("Non-blocking neighboursreduce computation has started\n");
 	}*/
-
-	/* TEST - mkHeader,mkPacket, P_DRESP */
-	if (sba_system.get_rank() == SENDER) {
-
-		float *arr = new float[D_SIZE];
-		for (int i = 0; i < D_SIZE; i++){
-			*(arr + i) = 0.5 + i;
-		}
-
-		Payload_t payload;
-		payload.push_back((Word)1);
-		payload.push_back((Word)2);
-		payload.push_back((Word)arr);
-
-
-		Word to_field = 29;
-
-		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, 6, 7 ,D_SIZE);
-		Packet_t packet = mkPacket(header, payload);
-
-		header = mkHeader(P_DREQ, 2, 3, payload.size(), to_field, 6, 7 ,D_SIZE);
-		Packet_t packet2 = mkPacket(header, payload);
-		/*cout << "Packet_type: " << (int) getPacket_type(header) << endl;
-		cout << "Prio/Ctrl: " << (int) getCtrl(header) << endl;
-		cout << "Redir: " << (int) getRedir(header) << endl;
-		cout << "Length: " << (int) getLength(header) << endl;
-		cout << "To: " << (int) getTo(header) << endl;
-		cout << "Return_to: " << (int) getReturn_to(header) << endl;*/
-
-
-		//sba_system.bridge_list.at(0)->send(packet);
-		sba_system.nodes[6]->transceiver->tx_fifo.push_back(packet);
-		sba_system.nodes[6]->transceiver->tx_fifo.push_back(packet2);
-		sba_system.nodes[6]->transceiver->transmit_packets();
-	}
-
-	/* TEST - mkHeader,mkPacket, non-P_DRESP */
-	/*if (rank == SENDER) {
-
-		float *arr = new float[D_SIZE];
-		for (int i = 0; i < D_SIZE; i++){
-			*(arr + i) = 0.5 + i;
-		}
-
-		Payload_t payload;
-		payload.push_back((Word)1);
-		payload.push_back((Word)2);
-		payload.push_back((Word)arr);
-
-		Header_t header = mkHeader(P_DREQ, 2, 3, payload.size(), 5, 6, 7 ,D_SIZE);
-		cout << "Packet_type: " << (int) getPacket_type(header) << endl;
-		cout << "Prio/Ctrl: " << (int) getCtrl(header) << endl;
-		cout << "Redir: " << (int) getRedir(header) << endl;
-		cout << "Length: " << (int) getLength(header) << endl;
-		cout << "To: " << (int) getTo(header) << endl;
-		cout << "To_rank: " << (int) getTo_rank(header) << endl;
-		cout << "Return_to: " << (int) getReturn_to(header) << endl;
-		cout << "Return_to_rank: " << (int) getReturn_to_rank(header) << endl;
-
-		header = setTo_rank(header, (Word)1);
-		header = setReturn_to_rank(header, (Word) SENDER);
-		cout << "To_rank: " << (int) getTo_rank(header) << endl;
-		cout << "Return_to_rank: " << (int) getReturn_to_rank(header) << endl;
-
-		Packet_t packet = mkPacket(header, payload);
-
-		//sba_system.bridge_list.at(0)->send(packet);
-		sba_system.send(packet);
-	}*/
-
-	for (;;) {} // Keep the program running indefinitely
 }
