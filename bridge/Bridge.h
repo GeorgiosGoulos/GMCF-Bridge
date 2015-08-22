@@ -9,9 +9,9 @@
 #include "Types.h"
 #include "Packet.h"
 
-#ifdef VERBOSE
+//#ifdef VERBOSE
 #include <sstream>
-#endif // VERBOSE
+//#endif // VERBOSE
 
 /** 
  * The function executed by a different thread, used for listening for incoming MPI messages

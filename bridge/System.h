@@ -21,52 +21,65 @@
 class System: public Base::System {
 	public:
 
-		std::unordered_map<Service,Tile*> nodes;
-#ifdef BRIDGE
-		std::vector<Bridge*> bridge_list; // the list of bridges that have been created by this System instance
-		MPI_Comm comm; // it is assigned MPI_COMM_WORLD so that comm_ptr can later point to that
+		/* public member variables */
 
-		pthread_spinlock_t bridge_selector_lock; // used for safely selecting a bridge from bridge_list
-		pthread_spinlock_t killed_threads_lock; // used for updating the number of killed receiving threads, used in destructor
+		/* A mapping of the Tile instances and their service number (or node_id). Taken from the original GMCF code */
+		std::unordered_map<Service,Tile*> nodes;
+
+#ifdef BRIDGE
+		/* A spinlock used for safely selecting a bridge from bridge_list */
+		pthread_spinlock_t bridge_selector_lock;
+
+		/* A spinlock used for updating the number of receiving threads that were killed. It is used in the destructor */ 
+		pthread_spinlock_t killed_threads_lock; 
 
 	#ifdef VERBOSE
-		stringstream ss; //used for printing messages
+		/* used for printing messages */
+		stringstream ss; 
 	#endif // VERBOSE
 
 #endif //BRIDGE
+
+		/* public member functions */
 		
 #ifdef BRIDGE
-		//Constructor when BRIDGE is defined
+		
+		/* Constructor used when BRIDGE is defined */
 		System(int r_, int c_): rows(r_), cols(c_), bridge_pos(-1), active(true), killed_threads(0){
 
 
-			// Initialise MPI and define thread support level
-			int tsl; // provided thread suppport level
+			/* Thread support level */
+			int tsl;
+
+			/* Initialise MPI for multithreaded use*/
 			MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &tsl);	
 
-// Create a new communicator if MPI_TOPOLOGY_OPT was defined, or MPI_COMM_WORLD otherwise
+			/* Create a new communicator if MPI_TOPOLOGY_OPT was defined, or MPI_COMM_WORLD otherwise */
 #ifdef MPI_TOPOLOGY_OPT
-			comm = System::create_communicator(rows, cols);
-			MPI_Comm_rank(comm, &rank);
-			MPI_Comm_size(comm, &size);
+			/* Create a new (possibly optimised) communicator */
+			comm = create_communicator(rows, cols);
 	#ifdef VERBOSE
 			if (rank == 0 ) {
 				cout << "Using optimised communicator (Cartesian topology)\n";
 			}
 	#endif // VERBOSE
 #else // MPI_TOPOLOGY_OPT
-	#ifdef VERBOSE
 			comm = MPI_COMM_WORLD;
-			MPI_Comm_rank(comm, &rank);
-			MPI_Comm_size(comm, &size);
+	#ifdef VERBOSE
 			if (rank == 0 ) {
 				cout << "Using standard communicator\n";
 			}
 	#endif // VERBOSE
 #endif // MPI_TOPOLOGY_OPT
 
+			/* Detect the MPI rank of the process */
+			MPI_Comm_rank(comm, &rank);
+			
+			/* Detect the number of running processes */
+			MPI_Comm_size(comm, &size);
 
-// Print the thread suppport level for each function (MPI does not ensure it will be the same for all processes)
+
+/* Print the thread suppport level for each function (MPI does not ensure it will be the same for all processes) */
 #ifdef VERBOSE
 			// Detect thread support level 
 			ss << "Rank " << rank << ": Thread support level is ";
@@ -90,9 +103,18 @@ class System: public Base::System {
 			cout << ss.str();
 #endif //VERBOSE
 
-			initialise_process_table(); // create a 2D table of the MPI processes
-			find_neighbours(); // find the processes that surround the current MPI node in the aforementioned table
+			/**
+			 * Create a 2D table of the MPI processes. The table is stored in process_tbl
+			 */
+			initialise_process_table(); 
 
+			/**
+			 * Find the processes that surround the current MPI node in the aforementioned table. They are stored in neighbours.
+			 * This method can be used for a 2D topology ONLY, modifications are required for other dimensions
+			 */
+			find_neighbours(); 
+
+			/* Create the Tile instances */
 			for (Service node_id_ = rank*NSERVICES + 1; node_id_ <= (Service) (rank+1)*NSERVICES; node_id_++) {
 				ServiceAddress service_address=node_id_;
 				Service node_id = node_id_;
@@ -105,40 +127,43 @@ class System: public Base::System {
 				}
 			}
 
-			/* Create a number of bridges */
+			/* Create the bridges */
 			for (int i = 0; i < NBRIDGES; i++){
 				bridge_list.push_back(new Bridge(this, rank));
 			}
 
+			/* Initialise the spinlocks */
 			pthread_spin_init(&bridge_selector_lock, PTHREAD_PROCESS_SHARED); 
 			pthread_spin_init(&killed_threads_lock, PTHREAD_PROCESS_SHARED); 
 
 		};
-#endif // BRIDGE // should add a #else here for the original contructors making it the only constructor when MPI is used
+#endif // BRIDGE // should add a #else here when integrated in the GMCF code so that the original constructors are used #ifndef BRIDGE
 
+		/* Destructor */
 		~System(){
-			for (Service node_id_=1;node_id_<=NSERVICES;node_id_++) {
-				delete nodes[node_id_];
-			}
+		
 #ifdef BRIDGE		
+			/* System instance is terminating. Receiving threads check the active should now terminate as well */
 			active = false;
 	#ifdef VERBOSE
 			ss.str("");
-			ss << "Rank " << rank << ": killing receiving thread(s)...\n";
+			ss << "Rank " << rank << ": Receiving thread(s) will now terminate...\n";
 			cout << ss.str();
 	#endif // VERBOSE
-			while ((unsigned int) killed_threads < bridge_list.size()) {} // wait for threads to get killed
+			/* wait for threads to terminate */
+			while ((unsigned int) killed_threads < bridge_list.size()) {} 
 	#ifdef VERBOSE
 			ss.str("");
 			ss << "Rank " << rank << ": killed all " << bridge_list.size() << " receiving thread(s)...\n";
 			cout << ss.str();
 	#endif // VERBOSE
-			pthread_spin_destroy(&killed_threads_lock); // no longer needed
-			pthread_spin_destroy(&bridge_selector_lock); // no longer needed
+			pthread_spin_destroy(&killed_threads_lock);
+			pthread_spin_destroy(&bridge_selector_lock); 
 			for (Bridge *bridge_ptr: bridge_list){
 				delete bridge_ptr;
 			}
-
+	
+	/* Finalise MPI. No more MPI routines should be executed after this point */
 	MPI_Finalize();
 	#ifdef VERBOSE
 			ss.str("");
@@ -149,18 +174,50 @@ class System: public Base::System {
 		}
 
 #ifdef BRIDGE
-		void print_process_table();
-		void find_neighbours(); // find the processes that surround the current MPI node in the process table
-		void print_neighbours();
-		std::vector<int> get_neighbours();
-		int get_rank();
-		int get_size() {
-			return size;
-		}
 
+		/**
+		 * Find the processes that surround the current MPI node in the process table 
+		 */
+		void find_neighbours(); 
+
+	#ifdef VERBOSE
+
+		/**
+		 * Prints a table representing the logical topology
+		 */
+		void print_process_table();
+
+		/**
+		 * Prints the neighbouring ranks of the current process on the process table
+		 */
+		void print_neighbours();
+	#endif //VERBOSE
+
+		/**
+		 * Returns the neighbouring processes of the current process on the process table
+		 * @return the contents of neighbours
+		 */
+		std::vector<int> get_neighbours();
+
+		/** 
+		 * Returns the rank of the current MPI process
+		 * @return the value of rank
+		 */
+		int get_rank();
+		
+		/**
+		 * Returns the number of MPI processes created
+		 * @return the value of size
+		 */
+		int get_size();
+
+		/**
+		 * Selects a bridge and sends a packet to another process
+		 * @param packet the GMCF packet to be sent
+		 */
 		void send(Packet_t packet);
-		void stencil_operation(std::vector<Packet_t> packet_list);
-		void neighboursreduce_operation(std::vector<Packet_t> packet_list);
+		//void stencil_operation(std::vector<Packet_t> packet_list); // TODO: Remove?
+		//void neighboursreduce_operation(std::vector<Packet_t> packet_list); //TODO: Remove?
 
 		/**
 		 * Returns the status of the System, which is true until the destructor of the System instance is called
@@ -174,7 +231,13 @@ class System: public Base::System {
 		void kill_thread(); 
 
 	#ifdef MPI_TOPOLOGY_OPT
-		static MPI_Comm create_communicator(int rows, int cols);
+		/**
+		 * Creates a new (possibly optimised) communicator that handles the logical topology as a torus architecture
+		 * @param rows the number of rows in the logical topology to be created
+		 * @param cols the number of columns in the logical topology to be created
+		 * @return the communicator
+		 */
+		MPI_Comm create_communicator(int rows, int cols);
 	#endif // MPI_TOPOLOGY_OPT
 
 		/**
@@ -184,6 +247,12 @@ class System: public Base::System {
 		MPI_Comm* get_comm_ptr();
 
 	private:
+		/* The list of Bridge instances that can be used for communication between processes */
+		std::vector<Bridge*> bridge_list; 
+
+		/* The communicator to be used for inter-process communication */
+		MPI_Comm comm; 
+
 		/* Dimensions of process_tbl */
 		int rows, cols; 
 
