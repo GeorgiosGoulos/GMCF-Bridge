@@ -24,17 +24,14 @@ class System: public Base::System {
 		std::unordered_map<Service,Tile*> nodes;
 #ifdef BRIDGE
 		std::vector<Bridge*> bridge_list; // the list of bridges that have been created by this System instance
-		MPI_Comm *comm_ptr; // pointer to the communicator
-	#ifndef MPI_TOPOLOGY_OPT
 		MPI_Comm comm; // it is assigned MPI_COMM_WORLD so that comm_ptr can later point to that
-	#endif // MPI_TOPOLOGY_OPT
 
 		pthread_spinlock_t bridge_selector_lock; // used for safely selecting a bridge from bridge_list
 		pthread_spinlock_t killed_threads_lock; // used for updating the number of killed receiving threads, used in destructor
 
-#ifdef VERBOSE
+	#ifdef VERBOSE
 		stringstream ss; //used for printing messages
-#endif // VERBOSE
+	#endif // VERBOSE
 
 #endif //BRIDGE
 		
@@ -49,9 +46,9 @@ class System: public Base::System {
 
 // Create a new communicator if MPI_TOPOLOGY_OPT was defined, or MPI_COMM_WORLD otherwise
 #ifdef MPI_TOPOLOGY_OPT
-			comm_ptr = System::create_communicator(rows, cols);
-			MPI_Comm_rank(*comm_ptr, &rank);
-			MPI_Comm_size(*comm_ptr, &size);
+			comm = System::create_communicator(rows, cols);
+			MPI_Comm_rank(comm, &rank);
+			MPI_Comm_size(comm, &size);
 	#ifdef VERBOSE
 			if (rank == 0 ) {
 				cout << "Using optimised communicator (Cartesian topology)\n";
@@ -60,9 +57,8 @@ class System: public Base::System {
 #else // MPI_TOPOLOGY_OPT
 	#ifdef VERBOSE
 			comm = MPI_COMM_WORLD;
-			comm_ptr = &comm;
-			MPI_Comm_rank(*comm_ptr, &rank);
-			MPI_Comm_size(*comm_ptr, &size);
+			MPI_Comm_rank(comm, &rank);
+			MPI_Comm_size(comm, &size);
 			if (rank == 0 ) {
 				cout << "Using standard communicator\n";
 			}
@@ -142,12 +138,6 @@ class System: public Base::System {
 			for (Bridge *bridge_ptr: bridge_list){
 				delete bridge_ptr;
 			}
-	#ifdef MPI_TOPOLOGY_OPT
-			delete comm_ptr; // created on the heap only when MPI_TOPOLOGY_OPT is defined (MPI_COMM_WORLD is used otherwise)
-	#endif // MPI_TOPOLOGY_OPT
-
-	/* Allow sometime for sending/receiving processes to finish their work */
-	//for (int i = 0; i < 2000000; i++){}
 
 	MPI_Finalize();
 	#ifdef VERBOSE
@@ -184,8 +174,14 @@ class System: public Base::System {
 		void kill_thread(); 
 
 	#ifdef MPI_TOPOLOGY_OPT
-		static MPI_Comm* create_communicator(int rows, int cols);
+		static MPI_Comm create_communicator(int rows, int cols);
 	#endif // MPI_TOPOLOGY_OPT
+
+		/**
+		 * Returns a pointer to the communicator
+		 * @return the communicator pointer
+		 */
+		MPI_Comm* get_comm_ptr();
 
 	private:
 		/* Dimensions of process_tbl */
@@ -213,12 +209,12 @@ class System: public Base::System {
 		int size;
 		
 		/** 
-		 * Create a 2D table of the MPI processes, which is stored in process_tbl
+		 * Creates a 2D table of the MPI processes, which is stored in process_tbl
 		 */
 		void initialise_process_table(); 
 
 		/**
-		 * Increment the member variable that indicates the index of the next bridge to be used 
+		 * Increments the member variable that indicates the index of the next bridge to be used 
 		 */
 		void increment_bridge_pos();
 

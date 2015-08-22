@@ -19,7 +19,7 @@ void System::initialise_process_table(){ // create a 2D table of the MPI process
 void System::find_neighbours(){ //This method can be used for a 2D topology ONLY, modifications are required for other dimensions
 	int ndims = 2; //number of dimensions //TODO: define it as a macro?
 	int coords[ndims]; // coord[0]:col, coord[1]: row
-	MPI_Cart_coords(*comm_ptr,rank, ndims, coords);
+	MPI_Cart_coords(comm,rank, ndims, coords);
 	
 	int new_coords[2];
 	int neighbour;
@@ -27,7 +27,7 @@ void System::find_neighbours(){ //This method can be used for a 2D topology ONLY
 		for (int row = -1; row <= 1; row++) {
 			new_coords[0] = coords[0] + col;
 			new_coords[1] = coords[1] + row;
-			MPI_Cart_rank(*comm_ptr,new_coords,&neighbour);
+			MPI_Cart_rank(comm,new_coords,&neighbour);
 			if (!(std::find(neighbours.begin(), neighbours.end(), neighbour) != neighbours.end())) {
 				this->neighbours.push_back(neighbour);
 			}
@@ -127,8 +127,8 @@ void System::increment_bridge_pos(){ // TODO: make thread safe
 }
 
 #ifdef MPI_TOPOLOGY_OPT
-MPI_Comm* System::create_communicator(int rows, int cols){
-	MPI_Comm comm, *comm_ptr;
+MPI_Comm System::create_communicator(int rows, int cols){
+	MPI_Comm comm;
 
 	int ndims = 2;	// number of dimensions
 	int dim[2];
@@ -142,8 +142,7 @@ MPI_Comm* System::create_communicator(int rows, int cols){
 	reorder = true;
 
 	MPI_Cart_create(MPI_COMM_WORLD, ndims, dim, period, reorder, &comm);
-	comm_ptr = new MPI_Comm(comm);
-	return comm_ptr;
+	return comm;
 }
 
 #endif // MPI_TOPOLOGY_OPT
@@ -156,4 +155,9 @@ void System::kill_thread(){ // thread-safe way of incrementing killed_threads, c
 	pthread_spin_lock(&killed_threads_lock);
 	killed_threads++;
 	pthread_spin_unlock(&killed_threads_lock);
+}
+
+// Returns a pointer to the communicator
+MPI_Comm* System::get_comm_ptr() {
+	return &comm;
 }

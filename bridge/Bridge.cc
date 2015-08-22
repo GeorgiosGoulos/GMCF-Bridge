@@ -255,7 +255,7 @@ void* wait_recv_any_th(void *arg){
 	MPI_Status status;
 
 	System& sba_system = *((System*)bridge->sba_system_ptr);
-	MPI_Comm *comm_ptr = sba_system.comm_ptr;
+	MPI_Comm *comm_ptr = sba_system.get_comm_ptr();
 
 	/* Used for checking the output of MPI_Iprobe() and MPI_Test() */
 	int flag;
@@ -375,7 +375,7 @@ void* send_th(void *args) {
 	System& sba_system = *((System*)bridge->sba_system_ptr);
 
 	/* Pointer to the communicator to be used for this operation */
-	MPI_Comm *comm_ptr = sba_system.comm_ptr;
+	MPI_Comm *comm_ptr = sba_system.get_comm_ptr();
 
 	/* The GPRM packet to be sent */
 	Packet_t packet = parameters->packet;
@@ -444,7 +444,7 @@ void* stencil_operation_th(void *args){
 	int flag;
 
 	System& sba_system = *((System*) bridge->sba_system_ptr);
-	MPI_Comm *comm_ptr = sba_system.comm_ptr;
+	MPI_Comm *comm_ptr = sba_system.get_comm_ptr();
 
 	for (unsigned int i = 0; i < packet_list.size() ; i++){
 		bridge->send(bridge->neighbours.at(i%bridge->neighbours.size()), packet_list.at(i), tag_stencil_scatter);
@@ -495,7 +495,7 @@ void *neighboursreduce_operation_th(void *args){
 	//printf("Rank %d: starting neighboursreduce operation\n", bridge->rank);
 
 	System& sba_system = *((System*) bridge->sba_system_ptr);
-	MPI_Comm *comm_ptr = sba_system.comm_ptr;
+	MPI_Comm *comm_ptr = sba_system.get_comm_ptr();
 
 	int sum=0;
 	MPI_Status status;
