@@ -121,7 +121,11 @@ class System: public Base::System {
 				if  (service_address != 0) {
 					
 					if (nodes.count(node_id) == 0) {
-						printf("RANK %d: ADDING NODE %d\n", rank, (int)node_id);
+	#ifdef VERBOSE
+						ss.str("");
+						ss << "Rank " << rank << ": Adding tile with node_id " << (int) node_id << "\n";
+						cout << ss.str();
+	#endif // VERBOSE
 						nodes[node_id]=new Tile(this, node_id, service_address, rank);
 					}
 				}

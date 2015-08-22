@@ -23,7 +23,7 @@ void *wait_recv_any_th(void* args);
 class Bridge {
 	public:
 
-		/* A pointer to the System instance that creted this Bridge */
+		/* A pointer to the System instance that created this Bridge */
 		Base::System* sba_system_ptr;
 
 		/* A vector containing all the logical neighbours of this MPI node */
