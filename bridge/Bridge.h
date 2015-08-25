@@ -35,13 +35,25 @@ class Bridge {
 		/* Handle to the thread that will listen for incoming MPI messages */
 		pthread_t recv_thread;
 
+#if  MPI_VERSION<3
+		/* A lock used to ensure a receiving threads that probes a packet also receives it*/
+		pthread_spinlock_t recv_lock;
+#endif // MPI_VERSION<3
+
 		/* Stream used for printing messages */
 		stringstream ss;
+
+
 
 
 		/** constructor */
 		Bridge(Base::System *sba_s_, int r_): sba_system_ptr(sba_s_), rank(r_){	
 			neighbours = sba_system_ptr->get_neighbours();		
+
+#if MPI_VERSION<3
+			/* Initialise the spinlock */
+			pthread_spin_init(&recv_lock, PTHREAD_PROCESS_SHARED); 
+#endif // MPI_VERSION<3
 
 			/* create receiving thread */
 			int rc = pthread_create(&recv_thread, NULL, wait_recv_any_th, (void *) this);
@@ -51,12 +63,19 @@ class Bridge {
 				cout << ss.str();
 				exit(1);
 			}
+
 #ifdef VERBOSE
 			ss.str("");
 			ss << "Rank " << rank << ": Creation of receiving thread was completed successfully.\n";
 			cout << ss.str();
 #endif // VERBOSE
 		};
+
+		~Bridge(){
+#if MPI_VERSION<3
+			pthread_spin_destroy(&recv_lock);		
+#endif // MPI_VERSION<3
+		}
 		
 
 		/**

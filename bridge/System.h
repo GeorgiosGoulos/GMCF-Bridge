@@ -21,12 +21,14 @@
 class System: public Base::System {
 	public:
 
-		/* public member variables */
-
 		/* A mapping of the Tile instances and their service number (or node_id). Taken from the original GMCF code */
 		std::unordered_map<Service,Tile*> nodes;
 
 #ifdef BRIDGE
+
+		/* The list of Bridge instances that can be used for communication between processes */
+		std::vector<Bridge*> bridge_list; 
+
 		/* A spinlock used for safely selecting a bridge from bridge_list */
 		pthread_spinlock_t bridge_selector_lock;
 
@@ -39,8 +41,6 @@ class System: public Base::System {
 	#endif // VERBOSE
 
 #endif //BRIDGE
-
-		/* public member functions */
 		
 #ifdef BRIDGE
 		
@@ -56,20 +56,13 @@ class System: public Base::System {
 
 			/* Create a new communicator if MPI_TOPOLOGY_OPT was defined, or MPI_COMM_WORLD otherwise */
 #ifdef MPI_TOPOLOGY_OPT
+		
 			/* Create a new (possibly optimised) communicator */
-			comm = create_communicator(rows, cols);
-	#ifdef VERBOSE
-			if (rank == 0 ) {
-				cout << "Using optimised communicator (Cartesian topology)\n";
-			}
-	#endif // VERBOSE
+			comm = create_communicator(rows, cols); 
 #else // MPI_TOPOLOGY_OPT
-			comm = MPI_COMM_WORLD;
-	#ifdef VERBOSE
-			if (rank == 0 ) {
-				cout << "Using standard communicator\n";
-			}
-	#endif // VERBOSE
+
+			/* Use the predefined communicator */
+			comm = MPI_COMM_WORLD; 
 #endif // MPI_TOPOLOGY_OPT
 
 			/* Detect the MPI rank of the process */
@@ -78,10 +71,43 @@ class System: public Base::System {
 			/* Detect the number of running processes */
 			MPI_Comm_size(comm, &size);
 
+#ifdef VERBOSE
+	#ifdef MPI_TOPOLOGY_OPT
+			if (rank == 0 ) {
+				cout << "Using optimised communicator (Cartesian topology)\n";
+			}	
+	#else // MPI_TOPOLOGY_OPT
+			if (rank == 0 ) {
+				cout << "Using standard communicator\n";
+			}
+	#endif // MPI_TOPOLOGY_OPT
+#endif // VERBOSE
+
+
+			/* Check the MPI version used */
+#ifdef VERBOSE
+			if (rank==0) {
+				ss.str("");
+				ss << "MPI version: ";
+	#ifdef MPI_VERSION // It covers versions before 1.3 (1.2, 1.1, 1.0)
+				ss << MPI_VERSION << "." << MPI_SUBVERSION << ". ";
+		#if MPI_VERSION>=3
+				ss << "MPI_Improbe() and MPI_Imrecv() will be used\n";
+		#else // MPI_VERSION<3
+				ss << "MPI_Iprobe() and MPI_Irecv() will be used\n";
+		#endif // MPI_VERSION==0
+	#else // MPI_VERSION
+				ss << "Could not be detected (MPI version must be <1.3). sychronised MPI_Iprobe() and MPI_Irecv() will be used\n";
+	#endif // MPI_VERSION
+				cout << ss.str();
+			}
+#endif // VERBOSE
+
 
 /* Print the thread suppport level for each function (MPI does not ensure it will be the same for all processes) */
 #ifdef VERBOSE
 			// Detect thread support level 
+			ss.str("");
 			ss << "Rank " << rank << ": Thread support level is ";
 			switch (tsl){
 				case MPI_THREAD_SINGLE: // A single thread will execute
@@ -103,12 +129,12 @@ class System: public Base::System {
 			cout << ss.str();
 #endif //VERBOSE
 
-			/**
+			/*
 			 * Create a 2D table of the MPI processes. The table is stored in process_tbl
 			 */
 			initialise_process_table(); 
 
-			/**
+			/*
 			 * Find the processes that surround the current MPI node in the aforementioned table. They are stored in neighbours.
 			 * This method can be used for a 2D topology ONLY, modifications are required for other dimensions
 			 */
@@ -143,7 +169,9 @@ class System: public Base::System {
 		};
 #endif // BRIDGE // should add a #else here when integrated in the GMCF code so that the original constructors are used #ifndef BRIDGE
 
-		/* Destructor */
+		/** 
+		 * Destructor for the System class
+		 */
 		~System(){
 		
 #ifdef BRIDGE		
@@ -220,6 +248,8 @@ class System: public Base::System {
 		 * @param packet the GMCF packet to be sent
 		 */
 		void send(Packet_t packet);
+
+
 		//void stencil_operation(std::vector<Packet_t> packet_list); // TODO: Remove?
 		//void neighboursreduce_operation(std::vector<Packet_t> packet_list); //TODO: Remove?
 
@@ -251,8 +281,6 @@ class System: public Base::System {
 		MPI_Comm* get_comm_ptr();
 
 	private:
-		/* The list of Bridge instances that can be used for communication between processes */
-		std::vector<Bridge*> bridge_list; 
 
 		/* The communicator to be used for inter-process communication */
 		MPI_Comm comm; 

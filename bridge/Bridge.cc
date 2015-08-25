@@ -260,24 +260,73 @@ void* wait_recv_any_th(void *arg){
 	/* Used for checking the output of MPI_Iprobe() and MPI_Test() */
 	int flag;
 
-	/* indicates whether the thread should be killed (System destructor was called) */
-	bool exit = false;
 	while(sba_system.is_active()){
 
-		/* Test for a message, but don't receive */
-		do { 
-			MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm_ptr, &flag, &status);
-
-			/* Check whether the destructor of System has been invoked */
-			if (!sba_system.is_active()){
-				exit = true;
-				break;
-			}
-		}while (!flag);
-		
-		/* If the destructor of System has been invoked  kill the thread */
-		if (exit){
+		/* Check whether the destructor of System has been invoked */
+		if (!sba_system.is_active()){
+			/* If the destructor of System has been invoked  exit the loop, which will lead to the thread being terminated */
 			break;
+		}
+
+#if TEST<3
+
+		/* Only one receiving thread at a time should execute the code below, so that the thread that gets a true flag also receives the
+		 * incoming message (there is a chance another thread will receive the message before this one can) */
+
+		/* Lock */
+		pthread_spin_lock(&(bridge->recv_lock));
+
+		/* Test for a message, but don't receive */ 
+		MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm_ptr, &flag, &status);
+		if (!flag){
+			
+			/* No incoming message, unlock and continue*/
+			pthread_spin_unlock(&(bridge->recv_lock));
+			continue;
+		}
+
+		/* Check the tag of the incoming message. If it's a special-purpose tag (e.g. tag_stencil_reduce) maybe some other 
+		 * should deal with this message */ 
+		int tag = status.MPI_TAG; // TODO: Remove?
+		if (tag == tag_stencil_reduce) {
+		
+			/* Incoming message to be handled by non-receiving thread, unlock and continue*/
+			pthread_spin_unlock(&(bridge->recv_lock));
+			continue; // Let the stencil_operation_th() function do this work
+		}
+		if (tag == tag_neighboursreduce_reduce) {
+			/* Incoming message to be handled by non-receiving thread, unlock and continue*/
+			pthread_spin_unlock(&(bridge->recv_lock));
+			continue; // Let the neighboursreduce_operation_th() function do this work
+		}
+
+		Packet_t packet;
+
+		/* Find the packet size */
+		int recv_size;
+		MPI_Get_count(&status, MPI_UINT64_T, &recv_size);
+		packet.resize(recv_size);
+
+		/* Handle to request object. Used for querying the status of the reciving operation */
+		MPI_Request req;
+
+		MPI_Irecv(&packet.front(), recv_size, MPI_UINT64_T, status.MPI_SOURCE, status.MPI_TAG,
+					*comm_ptr, &req);
+	
+		/* Receiving has started, synchronisation is no longer required, unlock */
+		pthread_spin_unlock(&(bridge->recv_lock));
+
+#else
+
+		/* Used for matching the detected incoming message when MPI_Imrecv() is invoked */
+		MPI_Message msg;
+
+		/* Test for a message, but don't receive */ 
+		MPI_Improbe(MPI_ANY_SOURCE, MPI_ANY_TAG, *comm_ptr, &flag, &msg, &status);
+
+		if (!flag){
+			/* No incoming message, continue */
+			continue;
 		}
 
 		/* Check the tag of the incoming message. If it's a special-purpose tag (e.g. tag_stencil_reduce) maybe some other 
@@ -292,7 +341,7 @@ void* wait_recv_any_th(void *arg){
 
 		Packet_t packet;
 
-		/* Find size of packet */
+		/* Find the packet size */
 		int recv_size;
 		MPI_Get_count(&status, MPI_UINT64_T, &recv_size);
 		packet.resize(recv_size);
@@ -300,26 +349,15 @@ void* wait_recv_any_th(void *arg){
 		/* Handle to request object. Used for querying the status of the reciving operation */
 		MPI_Request req;
 
-		MPI_Irecv(&packet.front(), recv_size, MPI_UINT64_T, status.MPI_SOURCE, status.MPI_TAG,
-					*comm_ptr, &req);
+		MPI_Imrecv(&packet.front(), recv_size, MPI_UINT64_T, &msg, &req);
 
 
-		/* Wait until the whole message is received */ //TODO: Change to what WV suggested
-		int counter = 0;
+#endif // MPI_VERSION<3
+
+		/* Wait until the whole message is received */
 		do {
-
-			/* If MPI_Test() was called MAX_ITERATIONS times and the message hasn't been received yet, another bridge probably 
-             * received it first so listen for another message */
-			if (++counter == MAX_ITERATIONS){
-					break;
-			} 
 			MPI_Test(&req, &flag, &status);
 		} while (!flag);
-		if (counter > MAX_ITERATIONS){			
-			printf("=======Rank %d: bridge was stuck testing a Irecv request\n", bridge->rank);
-			/* Listen for new messages (MPI_Iprobe() stage) */
-			continue; 
-		}
 
 #ifdef VERBOSE
 		int from_rank = (int) (getReturn_to(getHeader(packet))-1) / NSERVICES;
