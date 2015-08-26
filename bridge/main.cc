@@ -16,23 +16,30 @@
 
 
 /** 
- * Test the transfer of GMCF packets of type P_DRESP to other MPI processes
+ * Tests the transfer of GMCF packets of type P_DRESP to other MPI processes
  * @param sba_system the System instance
  */ 
 void send_packet_dresp(System& sba_system);
 
 
 /** 
- * Test the transfer of GMCF packets of a type other than P_DRESP to other MPI processes
+ * Tests the transfer of GMCF packets of a type other than P_DRESP to other MPI processes
  * @param sba_system the System instance
  */ 
 void send_packet_no_dresp(System& sba_system);
 
 /** 
- * Test the Bridge methods used for a stencil operation
+ * Tests the Bridge methods used for a stencil operation
  * @param sba_system the System instance
  */ 
 void stencil_operation(System& sba_system);
+
+/**
+ * Calculates the time it takes for a DRESP packet to be sent and an ack packet to be received 
+ * @param sba_system the System instance
+ * @param size_of_array the size of float array to be sent
+ */
+void time_send_dresp(System& sba_system, int size_of_array);
 
 //void neighboursreduce_operation(System& sba_system); // TODO: Use or Remove?
 
@@ -70,8 +77,12 @@ int main(int argc, char *argv[]){
 	//send_packet_dresp(sba_system);
 
 	/* TEST - mkHeader, mkPacket, no P_DRESP */	
-	send_packet_no_dresp(sba_system);
+	//send_packet_no_dresp(sba_system);
 
+#ifdef EVALUATE
+	/* EVALUATION - time it takes for a DRESP packet to be sent AND be unpacked AND a ack packet to be retrieved by the target */
+	time_send_dresp(sba_system, 12);
+#endif // EVALUATE
 	for (;;) {} // Keep the program running indefinitely
 }
 
@@ -153,6 +164,68 @@ void send_packet_no_dresp(System& sba_system){
 		sba_system.nodes[return_to_field]->transceiver->transmit_packets();
 	}
 }
+
+#ifdef EVALUATE
+void time_send_dresp(System& sba_system, int size_of_array){
+
+	if (sba_system.get_rank() == 0) {
+
+		int number_of_floats = size_of_array/sizeof(float);
+
+#ifdef VERBOSE
+		stringstream ss;
+		ss << "EVALUATION: " << number_of_floats << " float(s) to be sent (Approx. " << size_of_array << " bytes)\n";
+		cout << ss.str();
+#endif // VERBOSE
+
+		/* Create a float array. the GMCF packet will have a pointer to it */
+		float *arr = new float[number_of_floats];
+
+		/* Add number_of_floats-1 elements. The last one will be added later */
+		for (int i = 0; i < number_of_floats-1; i++){
+			*(arr + i) = 0.5 + i;
+		}
+
+		/* Add some Word elements to the payload */
+		Payload_t payload;
+		payload.push_back((Word)1);
+		payload.push_back((Word)2);
+		payload.push_back((Word)arr);
+
+		/* node_id of the receiving tile */
+		Word to_field = 29;
+	
+		/* node_id of sending tile */
+		Word return_to_field = 1;
+
+		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
+		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, return_to_field, 7 , number_of_floats);
+
+		/* Create the GMCF packet. This function is part of the original GMCF code */
+		Packet_t packet = mkPacket(header, payload);
+
+		/* Add the packet in the TX FIFO of the sending tile */
+		sba_system.nodes[return_to_field]->transceiver->tx_fifo.push_back(packet);
+
+		/* Call MPI_Wtime(), which returns the time (in seconds) passed from an arbitrary point in the past */
+		double start = MPI_Wtime();
+#ifdef VERBOSE
+	ss.str("");
+	ss << "MPI_Wtime() (start): " << start << "seconds\n";
+	cout << ss.str();
+#endif // VERBOSE
+
+		/* Convert start to float and store it in the array */
+		*(arr + number_of_floats - 1)= (float) start;
+
+		/* Transmit the GMCF packets in the TX FIFO of the return_to_field node */
+		//sba_system.nodes[return_to_field]->transceiver->transmit_packets();
+		sba_system.send(packet, tag_time_send);
+	}
+
+}
+#endif // EVALUATE
+
 
 void stencil_operation(System& sba_system) {
 	/*if (rank == SENDER) {

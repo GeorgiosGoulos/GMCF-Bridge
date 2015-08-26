@@ -246,8 +246,9 @@ class System: public Base::System {
 		/**
 		 * Selects a bridge and sends a packet to another process
 		 * @param packet the GMCF packet to be sent
+		 * @param tag The tag of the MPI message to be sent
 		 */
-		void send(Packet_t packet);
+		void send(Packet_t packet, int tag=tag_default);
 
 
 		//void stencil_operation(std::vector<Packet_t> packet_list); // TODO: Remove?

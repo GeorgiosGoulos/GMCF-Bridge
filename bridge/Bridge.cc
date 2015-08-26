@@ -268,7 +268,7 @@ void* wait_recv_any_th(void *arg){
 			break;
 		}
 
-#if TEST<3
+#if MPI_VERSION<3
 
 		/* Only one receiving thread at a time should execute the code below, so that the thread that gets a true flag also receives the
 		 * incoming message (there is a chance another thread will receive the message before this one can) */

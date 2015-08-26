@@ -88,7 +88,7 @@ class Bridge {
 		 * @param packet A GPRM packet
 		 * @param tag The tag of the MPI message to be sent
 		 */
-		void send(Packet_t packet, int tag=tag_other);
+		void send(Packet_t packet, int tag=tag_default);
 
 		/**
 		 * Used for sending GPRM packets through MPI messages to other MPI processes (used for debugging purposes)

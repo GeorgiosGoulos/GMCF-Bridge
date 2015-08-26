@@ -182,7 +182,7 @@ int System::get_size() {
 }
 
 // Selects a bridge and sends a packet to another process
-void System::send(Packet_t packet){
+void System::send(Packet_t packet, int tag){
 	increment_bridge_pos();
 	#ifdef VERBOSE	
 	stringstream sstream;
@@ -190,7 +190,7 @@ void System::send(Packet_t packet){
 	sstream << "Rank " << rank << ": Bridge " << bridge_pos << "(0-" << bridge_list.size()-1 << ") was selected to send a message \n";
 	std::cout << sstream.str();
 	#endif // VERBOSE
-	this->bridge_list.at(bridge_pos)->send(packet);
+	this->bridge_list.at(bridge_pos)->send(packet, tag);
 }
 
 /*void System::stencil_operation(std::vector<Packet_t> packet_list){

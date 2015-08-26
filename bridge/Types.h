@@ -39,6 +39,10 @@ enum MPI_Send_Type {
 	tag_neighboursreduce_reduce = 5,
 	tag_neighboursreduce_bcast = 6,
 	tag_test = 7 // TODO: Remove?
+#ifdef EVALUATE
+	, tag_time_send = 8,
+	tag_time_ack = 9
+#endif // EVALUATE
 };
 
 #define TMP_RANK 0 // debugging, used in System.h/System.cc
