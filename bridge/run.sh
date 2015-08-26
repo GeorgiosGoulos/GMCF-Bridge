@@ -4,7 +4,7 @@ TOTAL=$(($ROWS*$COLS)) # Total number of processes
 
 # g++ test_bridge.cc bridge.cc
 
-if mpic++ -pthread -std=c++11 -DVERBOSE -DEVALUATE -DMPI_TOPOLOGY_OPT -DBRIDGE -Wall -Werror main.cc System.cc Tile.cc Transceiver.cc Packet.cc Bridge.cc; then		# COMPILATION
+if mpic++ -pthread -std=c++11  -DEVALUATE -DMPI_TOPOLOGY_OPT -DBRIDGE -Wall -Werror main.cc System.cc Tile.cc Transceiver.cc Packet.cc Bridge.cc; then		# COMPILATION
 	mpiexec -np $TOTAL ./a.out $ROWS $COLS		# EXECUTION
 fi
 

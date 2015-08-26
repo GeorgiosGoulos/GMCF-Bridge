@@ -37,7 +37,7 @@ void stencil_operation(System& sba_system);
 /**
  * Calculates the time it takes for a DRESP packet to be sent and an ack packet to be received 
  * @param sba_system the System instance
- * @param size_of_array the size of float array to be sent
+ * @param size_of_array the size of float array to be sent in bytes
  */
 void time_send_dresp(System& sba_system, int size_of_array);
 
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]){
 
 #ifdef EVALUATE
 	/* EVALUATION - time it takes for a DRESP packet to be sent AND be unpacked AND a ack packet to be retrieved by the target */
-	time_send_dresp(sba_system, 12);
+	time_send_dresp(sba_system, 2000);
 #endif // EVALUATE
 	for (;;) {} // Keep the program running indefinitely
 }
@@ -172,11 +172,11 @@ void time_send_dresp(System& sba_system, int size_of_array){
 
 		int number_of_floats = size_of_array/sizeof(float);
 
-#ifdef VERBOSE
+//#ifdef VERBOSE // TODO: Uncomment
 		stringstream ss;
-		ss << "EVALUATION: " << number_of_floats << " float(s) to be sent (Approx. " << size_of_array << " bytes)\n";
+		ss << "Rank : " << sba_system.get_rank() <<" "<< number_of_floats << " float(s) to be sent (Approx. " << size_of_array << " bytes)\n";
 		cout << ss.str();
-#endif // VERBOSE
+//#endif // VERBOSE
 
 		/* Create a float array. the GMCF packet will have a pointer to it */
 		float *arr = new float[number_of_floats];
@@ -205,10 +205,11 @@ void time_send_dresp(System& sba_system, int size_of_array){
 		Packet_t packet = mkPacket(header, payload);
 
 		/* Add the packet in the TX FIFO of the sending tile */
-		sba_system.nodes[return_to_field]->transceiver->tx_fifo.push_back(packet);
+		//sba_system.nodes[return_to_field]->transceiver->tx_fifo.push_back(packet);
 
 		/* Call MPI_Wtime(), which returns the time (in seconds) passed from an arbitrary point in the past */
 		double start = MPI_Wtime();
+		sba_system.start = start;
 #ifdef VERBOSE
 	ss.str("");
 	ss << "MPI_Wtime() (start): " << start << "seconds\n";
@@ -218,7 +219,7 @@ void time_send_dresp(System& sba_system, int size_of_array){
 		/* Convert start to float and store it in the array */
 		*(arr + number_of_floats - 1)= (float) start;
 
-		/* Transmit the GMCF packets in the TX FIFO of the return_to_field node */
+		/* Send the packet */
 		//sba_system.nodes[return_to_field]->transceiver->transmit_packets();
 		sba_system.send(packet, tag_time_send);
 	}

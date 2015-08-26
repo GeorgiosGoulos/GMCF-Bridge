@@ -62,7 +62,7 @@ Word SBA::getReturn_as(const Header_t header) { // Returns the size of the data 
 }
 
 //TODO: Delete or Modify (already exists)
-Header_t SBA::mkHeader(Word packet_type, Word length, Word return_as) { //returns_as: size of data array
+Header_t SBA::mkHeader(Word packet_type, Word length, Word return_as) { //return_as: size of data array
 	Header_t wl;
 	wl.push_back(packet_type);
 	wl.push_back(length);

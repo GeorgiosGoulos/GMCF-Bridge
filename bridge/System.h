@@ -35,6 +35,12 @@ class System: public Base::System {
 		/* A spinlock used for updating the number of receiving threads that were killed. It is used in the destructor */ 
 		pthread_spinlock_t killed_threads_lock; 
 
+	#ifdef EVALUATE
+		/* double indicating the time elapsed since an arbitrary point in the past. Used for calculating the time it takes for a 
+		 * send() operation */
+		double start;
+	#endif // EVALUATE
+
 	#ifdef VERBOSE
 		/* used for printing messages */
 		stringstream ss; 

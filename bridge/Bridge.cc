@@ -83,7 +83,7 @@ Packet_t packDRespPacket(Packet_t packet){
 
 	for (int i = 0; i < data_size; i++){
 #ifdef VERBOSE
-		cout << "Pack: Adding " << *(arr+i) << endl; //TODO: Remove
+		//cout << "Pack: Adding " << *(arr+i) << endl; //TODO: Remove
 #endif // VERBOSE
 		packet.push_back(float2Word(*(arr+i)));
 	}
@@ -115,7 +115,7 @@ Packet_t unpackDRespPacket(Packet_t packet) {
 
 	int counter = 0;
 	for (vector<Word>::iterator it = packet.begin() + getHeader(packet).size() + original_size; it < packet.end(); it++){
-		cout << "Unpack: Adding " << Word2float(*it) << endl; //TODO: Remove
+		//cout << "Unpack: Adding " << Word2float(*it) << endl; //TODO: Remove
 		arr[counter++] = Word2float(*it);
 	}
 
@@ -370,10 +370,46 @@ void* wait_recv_any_th(void *arg){
 			packet = unpackDRespPacket(packet);
 		}
 
+#ifdef EVALUATE
+		/* Check whether the packet is used for evaluating purposes */
+		if (tag == tag_time_send){
+			//printf("Rank %d: TAG_TIME_SEND RECEIVED\n", sba_system.get_rank()); // TODO: Delete
+
+			/* Find the node_id of the sender */
+			int return_to = (int) getTo(getHeader(packet));
+			int to = (int) getReturn_to(getHeader(packet));
+		
+			/* Add the start time in Word form to the payload */
+			Payload_t payload;
+			payload.push_back(packet.at(packet.size()-1));
+
+			/* Create the header of the GMCF packet. This function is part of the original GMCF code */
+			Header_t header = mkHeader(P_DREQ, 2, 3, payload.size(), to, return_to, 7 , 0);
+
+			/* Create the GMCF packet. This function is part of the original GMCF code */
+			packet = mkPacket(header, payload);
+
+			/* Send the packet */
+			sba_system.send(packet, tag_time_ack);
+
+			/* Check for another incoming message */
+			continue;
+		}
+		else if (tag == tag_time_ack){
+			//printf("Rank %d: TAG_TIME_ACK RECEIVED\n", sba_system.get_rank()); // TODO: Delete
+
+			/* Call MPI_Wtime(), which returns the time (in seconds) passed from an arbitrary point in the past */
+			double end = MPI_Wtime();
+
+			double start = sba_system.start;
+			printf("RANK %d: START: %f END: %f TIME: %fsecs\n", sba_system.get_rank(), start, end, end-start);
+
+		}
+#endif // EVALUATE
+
 		/* Calculate the service_id of the Tile instance to receive the GMCF packet */
 		Service service_id = ((getTo(getHeader(packet)) - 1) % (sba_system.get_size()*NSERVICES))+1;
 		ServiceAddress dest = service_id;
-		printf ("RECV: dest is %d\n", dest);
 		sba_system.nodes[dest]->transceiver->rx_fifo.push_back(packet);
 #ifdef VERBOSE
 		printf("Rank %d (Recv): Sent packet to dest %d\n", bridge->rank, dest);
