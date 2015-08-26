@@ -84,7 +84,7 @@ int main(int argc, char *argv[]){
 	time_send_dresp(sba_system, 2000);
 #endif // EVALUATE
 	
-	//for (;;) {} // Keep the program running indefinitely
+	for (int i = 0; i < 2000000; i++) {} // Keep the program running indefinitely // TODO: Change
 }
 
 // Test the transfer of GMCF packets of type P_DRESP to other MPI processes
