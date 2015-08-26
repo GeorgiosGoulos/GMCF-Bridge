@@ -83,7 +83,8 @@ int main(int argc, char *argv[]){
 	/* EVALUATION - time it takes for a DRESP packet to be sent AND be unpacked AND a ack packet to be retrieved by the target */
 	time_send_dresp(sba_system, 2000);
 #endif // EVALUATE
-	for (;;) {} // Keep the program running indefinitely
+	
+	//for (;;) {} // Keep the program running indefinitely
 }
 
 // Test the transfer of GMCF packets of type P_DRESP to other MPI processes
