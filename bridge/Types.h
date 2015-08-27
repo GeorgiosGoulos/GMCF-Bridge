@@ -47,7 +47,7 @@ enum MPI_Send_Type {
 
 #define TMP_RANK 0 // debugging, used in System.h/System.cc
 #define NSERVICES 9 // tmp, used in System.h/System.cc
-#define NBRIDGES 6 // tmp, used in System.h/System.cc
+#define NBRIDGES 1 // tmp, used in System.h/System.cc
 
 
 

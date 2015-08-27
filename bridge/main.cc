@@ -84,7 +84,7 @@ int main(int argc, char *argv[]){
 	time_send_dresp(sba_system, 2000);
 #endif // EVALUATE
 	
-	for (int i = 0; i < 2000000; i++) {} // Keep the program running indefinitely // TODO: Change
+	for (;;) {} // Keep the program running indefinitely // TODO: Change
 }
 
 // Test the transfer of GMCF packets of type P_DRESP to other MPI processes
@@ -173,11 +173,11 @@ void time_send_dresp(System& sba_system, int size_of_array){
 
 		int number_of_floats = size_of_array/sizeof(float);
 
-//#ifdef VERBOSE // TODO: Uncomment
+#ifdef VERBOSE // TODO: Uncomment
 		stringstream ss;
 		ss << "Rank : " << sba_system.get_rank() <<" "<< number_of_floats << " float(s) to be sent (Approx. " << size_of_array << " bytes)\n";
 		cout << ss.str();
-//#endif // VERBOSE
+#endif // VERBOSE
 
 		/* Create a float array. the GMCF packet will have a pointer to it */
 		float *arr = new float[number_of_floats];

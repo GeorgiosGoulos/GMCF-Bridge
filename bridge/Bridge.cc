@@ -198,7 +198,9 @@ std::vector<int> Bridge::get_neighbours(){
 void Bridge::stencil(std::vector<Packet_t> packet_list){
 
 #ifdef VERBOSE
-	printf("Rank %d: Scattering %d packets among %d neighbours (STENCIL COMPUTATION)\n", rank, packet_list.size(), neighbours.size()); 
+	stringstream ss;
+	ss << "Rank " << rank << "(stencil): Scattering " << packet_list.size() << " packet(s) among " << neighbours.size() << " neighbour(s)\n";
+	cout << ss.str();
 #endif // VERBOSE
 
 	pthread_t thread;
@@ -227,7 +229,9 @@ void Bridge::stencil(std::vector<Packet_t> packet_list){
 void Bridge::neighboursreduce(std::vector<Packet_t> packet_list) {
 
 #ifdef VERBOSE
-	printf("Rank %d: Scattering %d packets among %d neighbours (neighboursreduce)\n", rank, packet_list.size(), neighbours.size()); 
+	stringstream ss;
+	ss << "Rank " << rank << "(nr): Scattering " << packet_list.size() << " packet(s) among " << neighbours.size() << " neighbour(s)\n";
+	cout << ss.str();
 #endif // VERBOSE
 
 	pthread_t thread;
