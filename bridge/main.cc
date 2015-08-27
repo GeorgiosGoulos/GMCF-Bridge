@@ -182,8 +182,8 @@ void time_send_dresp(System& sba_system, int size_of_array){
 		/* Create a float array. the GMCF packet will have a pointer to it */
 		float *arr = new float[number_of_floats];
 
-		/* Add number_of_floats-1 elements. The last one will be added later */
-		for (int i = 0; i < number_of_floats-1; i++){
+		/* Add elements to the float array */
+		for (int i = 0; i < number_of_floats; i++){
 			*(arr + i) = 0.5 + i;
 		}
 
@@ -197,7 +197,7 @@ void time_send_dresp(System& sba_system, int size_of_array){
 		Word to_field = 29;
 	
 		/* node_id of sending tile */
-		Word return_to_field = 1;
+		Word return_to_field = NSERVICES * sba_system.get_rank();
 
 		/* Create the header of the GMCF packet. This function is part of the original GMCF code */
 		Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, return_to_field, 7 , number_of_floats);
@@ -217,11 +217,7 @@ void time_send_dresp(System& sba_system, int size_of_array){
 	cout << ss.str();
 #endif // VERBOSE
 
-		/* Convert start to float and store it in the array */
-		*(arr + number_of_floats - 1)= (float) start;
-
 		/* Send the packet */
-		//sba_system.nodes[return_to_field]->transceiver->transmit_packets();
 		sba_system.send(packet, tag_time_send);
 	}
 
