@@ -81,12 +81,6 @@ class Bridge {
 		void send(Packet_t packet, int tag=tag_default);
 		
 		/**
-		 * Initiates a stencil operation
-		 * @param packet_list A vector containing GPRM packets to be scattered among the neighbours
-		 */
-		void stencil(std::vector<Packet_t> packet_list); // TODO: Remove?
-
-		/**
 		 * Returns the rank of this MPI node
 		 * @return the value of the rank variable
 		 */

@@ -345,7 +345,7 @@ class System: public Base::System {
 		/* Indicates the number of threads killed during the destruction process, used to ensure all receivers have been killed */
 		int killed_threads; 
 
-		/* A vector of vectors representing a table of MPI processes TODO: move to find_neighbours after deployment */
+		/* A vector of vectors representing a table of MPI processes */
 		std::vector< std::vector<int> > process_tbl; 
 
 		/* The neighbouring MPI processes of the current process */

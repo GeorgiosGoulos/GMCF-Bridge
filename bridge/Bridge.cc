@@ -80,12 +80,6 @@ int get_sender_id(int final_tag){
 }
 
 /**
- * A function that will be executed by a thread which will initiate a stencil operation
- * @param args a void pointer that points to a dynamically allocated bridge_packets structure
- */
-void* stencil_operation_th(void *args); // TODO: Remove?
-
-/**
  * A function that will be executed by a thread which will initiate a send operation
  * @param args a void pointer that points to a dynamically allocated bridge_packet_tag structure
  */

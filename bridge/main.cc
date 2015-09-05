@@ -202,12 +202,12 @@ void test_time_dresp(System& sba_system, int size_of_array, int num_packets){
 		/* Calculate the size of the float array to be sent based on the number of bytes to be sent */
 		int number_of_floats = size_of_array/sizeof(float);
 
-//#ifdef VERBOSE // TODO: Uncomment
+#ifdef VERBOSE
 		stringstream ss;
 		ss << "Rank " << sba_system.get_rank() << ": sending " << num_packets << " packet(s) with ";
 		ss << number_of_floats << " float(s) (Approx. " << size_of_array << " bytes) each\n";
 		cout << ss.str();
-//#endif // VERBOSE
+#endif // VERBOSE
 	
 		/* Perform the test for each packet */
 		for (int i=0;i< num_packets; i++) {
@@ -286,12 +286,12 @@ void test_time_dresp_multiple(System& sba_system, int size_of_array, int num_pac
 		/* Calculate the size of the float array to be sent based on the number of bytes to be sent */
 		int number_of_floats = size_of_array/sizeof(float);
 
-//#ifdef VERBOSE // TODO: Uncomment
+#ifdef VERBOSE 
 		stringstream ss;
 		ss << "Rank " << sba_system.get_rank() << ": sending " << num_packets << " packet(s) with ";
 		ss << number_of_floats << " float(s) (Approx. " << size_of_array << " bytes) each\n";
 		cout << ss.str();
-//#endif // VERBOSE
+#endif // VERBOSE
 	
 		/* Perform the test for each packet */
 		for (int i=0;i< num_packets; i++) {
