@@ -23,27 +23,10 @@ void *wait_recv_any_th(void* args);
 class Bridge {
 	public:
 
-		/* A pointer to the System instance that created this Bridge */
-		Base::System* sba_system_ptr;
-
-		/* A vector containing all the logical neighbours of this MPI node */
-		std::vector<int> neighbours;
-
-		/* The MPI rank of this process */
-		int rank;
-
-		/* Handle to the thread that will listen for incoming MPI messages */
-		pthread_t recv_thread;
-
 #if  MPI_VERSION<3
 		/* A lock used to ensure a receiving threads that probes a packet also receives it*/
 		pthread_spinlock_t recv_lock;
 #endif // MPI_VERSION<3
-
-		/* Stream used for printing messages */
-		stringstream ss;
-
-
 
 
 		/** constructor */
@@ -84,31 +67,52 @@ class Bridge {
 		std::vector<int> get_neighbours();
 
 		/**
-		 * Used for sending GPRM packets through MPI messages to other MPI processes
+		 * Used for sending GPRM packets through MPI messages to other MPI processes (threaded)
+		 * @param packet A GPRM packet
+		 * @param tag The tag of the MPI message to be sent
+		 */
+		void send_th(Packet_t packet, int tag=tag_default);
+
+		/**
+		 * Used for sending GPRM packets through MPI messages to other MPI processes (not threaded)
 		 * @param packet A GPRM packet
 		 * @param tag The tag of the MPI message to be sent
 		 */
 		void send(Packet_t packet, int tag=tag_default);
-
-		/**
-		 * Used for sending GPRM packets through MPI messages to other MPI processes (used for debugging purposes)
-		 * @param target The MPI rank of the process to receive the message
-		 * @param packet A GPRM packet
-		 * @param tag The tag of the MPI message to be sent
-		 */
-		void send(int target, Packet_t packet, int tag=tag_default); // TODO: Remove
 		
 		/**
 		 * Initiates a stencil operation
 		 * @param packet_list A vector containing GPRM packets to be scattered among the neighbours
 		 */
-		void stencil(std::vector<Packet_t> packet_list);
+		void stencil(std::vector<Packet_t> packet_list); // TODO: Remove?
 
 		/**
-		 * Initiates a neighboursreduce operation
-		 * @param packet_list A vector containing GPRM packets to be scattered among the neighbours // TODO Change
+		 * Returns the rank of this MPI node
+		 * @return the value of the rank variable
 		 */
-		void neighboursreduce(std::vector<Packet_t> packet_list);	// Threaded	
+		int get_rank();
+
+		/**
+		 * Returns a pointer to the System instance
+		 * @return the sba_system_ptr pointer
+		 */
+		Base::System* get_system_ptr();
+
+	private:
+		/* Stream used for printing messages */
+		stringstream ss;
+
+		/* A vector containing all the logical neighbours of this MPI node */
+		std::vector<int> neighbours;
+
+		/* A pointer to the System instance that created this Bridge */
+		Base::System* sba_system_ptr;
+
+		/* The MPI rank of this process */
+		int rank;
+
+		/* Handle to the thread that will listen for incoming MPI messages */
+		pthread_t recv_thread;
 
 };
 

@@ -6,15 +6,15 @@
 #include <pthread.h>
 #include <iostream>
 
+#include <cstdint>
+
 using namespace std;
 
-
-//TODO: Remove?
-#include <cstdint>
 typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint64_t u_int64_t;
 
+/* Used in the original GMCF */
 typedef u_int64_t Uint64;
 typedef Uint64 Word;
 typedef std::vector<Word> Packet_t;
@@ -24,34 +24,58 @@ typedef unsigned int Service; // 4 bytes
 typedef unsigned int MemAddress; // typically fits into Subtask
 typedef MemAddress ServiceAddress;
 
-//typedef std::vector<Packet_t> Packet_Fifo; //Actually it's typedef Fifo<Packet_t> Packet_Fifo;
+
+/* Indicates the number of Tile instances to be created on each MPI node. Used in the original GMCF */
+#define NSERVICES 9 
+
+#ifdef BRIDGE
+
+/* Indicates the number of bridges to be created in each MPI node
+ * If this macro is not defined by the user in run.sh it will be assigned the value 3 here
+ */
+#ifndef NBRIDGES
+	#define NBRIDGES 3
+#endif //NBRIDGES
+
+typedef uint8_t tag_t; // should not be larger than 4 bits (0 - 15)
+typedef uint16_t receiver_t; // node_id of the receiving tile, should not be larger than 14 bits ( 1 - 16383, 0 is not used as a node_id)
+typedef uint16_t sender_t; // node_id of the sending tile, should not be larger than 14 bits ( 1- 16383, 0 is not used as a node_id)
 
 
-//typedef Packet_Fifo RX_Packet_Fifo; // Actually RX_Packet_Fifo is a class containing a deque (Types.h)
+/* The idea of using fields in the tag that labels MPI messages was taken from GMCF, which uses the same technique for 
+ * defining many fields in the header of a GMCF packet 
+ */
 
+/* The tag field uses the 4 rightmost bits of the tag that labels a MPI message */
+const unsigned int F_tag_t = 0x0000000FU;
 
-enum MPI_Send_Type {
-	tag_other = 0,
+/* The receiver field uses the 14 bits to the left of the tag field */
+const unsigned int F_receiver_t = 0x0003FFF0U;
+
+/* The sender field uses the leftmost 14 bits of the tag */
+const unsigned int F_sender_t = 0xFFFC0000U;
+
+/* Constants indicating the first bit in the tag that the field uses */
+const unsigned int FS_tag_t = 0;
+const unsigned int FS_receiver_t = 4;
+const unsigned int FS_sender_t = 18;
+
+enum MPI_Send_Type { // Should be <16 since (4 bits will be used when creating the tag)
+
+	/* Used for testing purposes */
+	tag_test = 0,
+
+	/* Default tag, currently used for all messages besides the ones containing the float array of DRESP packets */
 	tag_default = 1,
-	tag_stencil_scatter = 2,
-	tag_stencil_reduce = 3,
-	tag_neighboursreduce_scatter = 4,
-	tag_neighboursreduce_reduce = 5,
-	tag_neighboursreduce_bcast = 6,
-	tag_test = 7 // TODO: Remove?
-#ifdef EVALUATE
-	, tag_time_send = 8,
-	tag_time_ack = 9
-#endif // EVALUATE
+
+	/* Used with messages containing the float array of DRESP packets */
+	tag_dresp_data = 2
 };
 
-#define TMP_RANK 0 // debugging, used in System.h/System.cc
-#define NSERVICES 9 // tmp, used in System.h/System.cc
-#define NBRIDGES 1 // tmp, used in System.h/System.cc
+#endif // BRIDGE
 
 
-
-
+/* The rest is defined in the original GMCF code */
 
 //template <typename Packet_t, Word depth>
 class RX_Packet_Fifo {
@@ -93,7 +117,7 @@ class RX_Packet_Fifo {
         _status=1;
 #ifdef VERBOSE
     cout << "RX_Packet_Fifo: UNBLOCK on wait_for_packets()\n";
-#endif
+#endif // VERBOSE
 	}
     void push_back(Packet_t const& data) {
         pthread_spin_lock(&_RXlock);
@@ -105,7 +129,7 @@ class RX_Packet_Fifo {
     Packet_t pop_front() {
 #ifdef VERBOSE
         cout << "RX_Packet_Fifo: pop_front()\n";
-#endif
+#endif // VERBOSE
         while(packets.empty()) { // this is for double check, it should not happen
         	cout << "RX_Packet_Fifo: Thread Blocked For Some Strange Reason!" << endl;
         	__asm__ __volatile__ ("" ::: "memory");
@@ -122,8 +146,6 @@ class RX_Packet_Fifo {
         return t_elt;
     }
 }; // RX_Packet_Fifo
-
-
 
 
 // depth is ignored for dynamic alloc

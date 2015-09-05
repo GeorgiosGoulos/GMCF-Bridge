@@ -12,6 +12,7 @@
 
 
 #ifdef BRIDGE
+
 // Create a 2D table of the MPI processes. The table is stored in process_tbl
 void System::initialise_process_table(){
 	process_tbl.resize(rows); // Each element of this vector represents a row
@@ -57,7 +58,7 @@ void System::find_neighbours(){
 		for (int row = -1; row <= 1; row++) {
 		
 			// Don't add the current MPI process in the list of neighbours
-			if (col == 0 && rank == 0) {
+			if (col == 0 && row == 0) {
 				continue;
 			}
 			new_coords[0] = coords[0] + col;
@@ -75,8 +76,6 @@ void System::find_neighbours(){
 		}	
 	}
 
-	// Sort the neighbours: not really needed
-	//std::sort(neighbours.begin(), neighbours.end());
 }
 
 	#else // ifndef MPI_TOPOLOGY_OPT 
@@ -176,12 +175,24 @@ int System::get_rank(){
 	return rank;
 }
 
-// Returns the number of MPI processes created
+// Returns the number of MPI processes created (threaded)
 int System::get_size() {
 	return size;
 }
 
 // Selects a bridge and sends a packet to another process
+void System::send_th(Packet_t packet, int tag){
+	increment_bridge_pos();
+	#ifdef VERBOSE	
+	stringstream sstream;
+	sstream.str("");
+	sstream << "Rank " << rank << ": Bridge " << bridge_pos << "(0-" << bridge_list.size()-1 << ") was selected to send a message \n";
+	std::cout << sstream.str();
+	#endif // VERBOSE
+	this->bridge_list.at(bridge_pos)->send_th(packet, tag);
+}
+
+// Selects a bridge and sends a packet to another process (not threaded)
 void System::send(Packet_t packet, int tag){
 	increment_bridge_pos();
 	#ifdef VERBOSE	
@@ -192,18 +203,6 @@ void System::send(Packet_t packet, int tag){
 	#endif // VERBOSE
 	this->bridge_list.at(bridge_pos)->send(packet, tag);
 }
-
-/*void System::stencil_operation(std::vector<Packet_t> packet_list){
-	increment_bridge_pos();
-	printf("Rank %d: Bridge %d(0-%d) was selected to initiate a stencil operation\n", rank, bridge_pos, bridge_list.size()-1);
-	this->bridge_list.at(bridge_pos)->stencil(packet_list);
-}
-
-void System::neighboursreduce_operation(std::vector<Packet_t> packet_list){
-	increment_bridge_pos();
-	printf("Rank %d: Bridge %d(0-%d) was selected to initiate a neighboursreduce operation\n", rank, bridge_pos, bridge_list.size()-1);
-	this->bridge_list.at(bridge_pos)->neighboursreduce(packet_list);
-}*/
 
 // Increments the member variable that indicates the index of the next bridge to be used 
 void System::increment_bridge_pos(){ 
