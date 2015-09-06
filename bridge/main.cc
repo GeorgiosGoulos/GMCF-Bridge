@@ -86,7 +86,7 @@ int main(int argc, char *argv[]){
 #ifdef EVALUATE
 
 	/* EVALUATION - time it takes for n DRESP packets to be sent AND an ack packet to be sent and retrieved */
-	//test_time_dresp(sba_system, 200000, 1000);
+	test_time_dresp(sba_system, 200000, 1000);
 
 	/* EVALUATION - time it takes for all the tiles on a node to send 1 packet to a tile on another node */
 	//test_all_tiles_in_node_send(sba_system, 200000);
@@ -278,90 +278,7 @@ void test_time_dresp(System& sba_system, int size_of_array, int num_packets){
 
 }
 
-// Measures the time it takes for n DRESP packets to be sent and an ack packet to be received for each of them
-void test_time_dresp_multiple(System& sba_system, int size_of_array, int num_packets){
-
-	if (sba_system.get_rank() == SENDER) {
-
-		/* Calculate the size of the float array to be sent based on the number of bytes to be sent */
-		int number_of_floats = size_of_array/sizeof(float);
-
-#ifdef VERBOSE 
-		stringstream ss;
-		ss << "Rank " << sba_system.get_rank() << ": sending " << num_packets << " packet(s) with ";
-		ss << number_of_floats << " float(s) (Approx. " << size_of_array << " bytes) each\n";
-		cout << ss.str();
-#endif // VERBOSE
-	
-		/* Perform the test for each packet */
-		for (int i=0;i< num_packets; i++) {
-
-#ifdef VERBOSE
-			ss.str("");
-			ss << "Creating and sending packet No." << i << "...\n";
-			cout << ss.str();
-#endif // VERBOSE
-
-			/* Create a float array. the GMCF packet will have a pointer to it */
-			float *arr = new float[number_of_floats];
-
-			/* Add elements to the float array */
-			for (int j = 0; j < number_of_floats; j++){
-				*(arr + j) = 0.5 + j;
-			}
-
-			/* Add Word elements to the payload */
-			Payload_t payload;
-			payload.push_back((Word)i);
-			payload.push_back((Word)arr);
-	
-			/* node_id of sending tile */
-			Word return_to_field = NSERVICES * sba_system.get_rank() + 1;
-
-			/* node_id of the receiving tile */
-			Word to_field = return_to_field + NSERVICES;
-
-			/* Create the header of the GMCF packet. This function is part of the original GMCF code */
-			Header_t header = mkHeader(P_DRESP, 2, 3, payload.size(), to_field, return_to_field, 7 , number_of_floats);
-
-			/* Create the GMCF packet. This function is part of the original GMCF code */
-			Packet_t packet = mkPacket(header, payload);
-
-			/* Add the packet in the TX FIFO of the sending tile */
-			sba_system.nodes[NSERVICES * sba_system.get_rank() + 1]->transceiver->tx_fifo.push_back(packet);
-
-			
-
-#ifdef VERBOSE
-			ss.str("");
-			ss << "No." << i << ": Packet ready to be transmitted...\n";
-			cout << ss.str();
-#endif // VERBOSE
-
-			/* Call MPI_Wtime(), which returns the time (in seconds) elapsed since an arbitrary point in the past */
-			sba_system.start_time = MPI_Wtime();
-
-			
-
-		}
-			/* Update the status variable of System to 1, indicating that a test is underway */
-			sba_system.testing_status = true;
-			/* wait until the results are in */
-			while (sba_system.testing_status) {}
-			/* Send the packet */
-			sba_system.nodes[NSERVICES * sba_system.get_rank()+1]->transceiver->transmit_packets();
-
-		/* Print the average time it took, the total number of packets sent and the number of bridges created */
-#ifndef THREADED_SEND
-		printf("Rank %d: Sent %d packets. It took an average of %f seconds per packet (send and receive of ack), %d bridge(s) used. Did not use threaded sends\n", 
-#else // THREADED_SEND
-		printf("Rank %d: Sent %d packets. It took an average of %f seconds per packet (send and receive of ack), %d bridge(s) used. Used threaded sends\n", 
-#endif // THREADED_SEND
-		sba_system.get_rank(), num_packets, sba_system.end_time/num_packets, NBRIDGES);
-
-	}
-
-}
+// The following function was not used for evaluation purposes during the evaluation stage of the project
 
 // Measures the time it takes for each tile on a node to send 1 packet to a tile on another node 
 // The THREADED_SEND macro should be used when running this test, otherwise the transmission will be performed serially
